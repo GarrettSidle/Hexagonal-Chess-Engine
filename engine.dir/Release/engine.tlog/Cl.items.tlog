@@ -1,0 +1,6 @@
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\main.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\main.obj
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\board.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\board.obj
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\moves.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\moves.obj
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\eval.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\eval.obj
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\search.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\search.obj
+C:\dev\repos\Hexagonal-Chess-Application\Engine\src\protocol.cpp;C:\dev\repos\Hexagonal-Chess-Application\Engine\engine.dir\Release\protocol.obj

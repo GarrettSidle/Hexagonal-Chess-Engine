@@ -10,6 +10,7 @@ Glinski hexagonal chess engine. Bot plays **black**; white is the opponent.
 mkdir build && cd build
 cmake ..
 cmake --build .
+cmake --build . --config Release
 ```
 
 **With Make (g++):**

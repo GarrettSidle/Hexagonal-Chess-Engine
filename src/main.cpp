@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
-        hexchess::search::iterative_deepen(*root, 4, []() { return false; });
+        hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
         if (root->best_move) {
           const auto& mv = *root->best_move;
           auto piece = root->state.at(mv.from_col, mv.from_row);
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
     root->best_move = std::nullopt;
 
     std::cout << "thinking....." << std::endl;
-    hexchess::search::iterative_deepen(*root, 4, []() { return false; });
+    hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
     if (root->best_move) {
       const auto& mv = *root->best_move;
       auto eng_piece = root->state.at(mv.from_col, mv.from_row);
