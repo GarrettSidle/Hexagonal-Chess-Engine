@@ -69,6 +69,91 @@ int minimax(State& state, int depth, int alpha, int beta, SearchContext& ctx) {
   }
 }
 
+int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx) {
+  ctx.nodes_used++;
+  if (ctx.budget_exceeded()) return eval::evaluate(node.state);
+
+  auto moves = moves::generate(node.state);
+  if (moves.empty()) return eval::evaluate(node.state);
+
+  if (depth == 0) return eval::evaluate(node.state);
+
+  // Futility pruning: at depth >= 4, skip children if static eval is obviously bad
+  if (depth >= CULL_MIN_DEPTH) {
+    int static_eval = eval::evaluate(node.state);
+    if (node.state.white_to_play && static_eval <= alpha - CULL_MARGIN)
+      return static_eval;
+    if (!node.state.white_to_play && static_eval >= beta + CULL_MARGIN)
+      return static_eval;
+  }
+
+  if (node.state.white_to_play) {
+    int max_eval = std::numeric_limits<int>::min();
+    std::optional<Move> best_move;
+    for (const Move& m : moves) {
+      State::UndoInfo ui = node.state.make_move(m);
+      int score;
+      bool terminal = false;
+      if (ui.captured && ui.captured->type == 'K') {
+        score = KING_CAPTURED_WHITE_WINS;
+        terminal = true;
+      }
+      auto child = std::make_unique<Node>();
+      child->state = node.state;
+      if (terminal) {
+        child->best_score = score;
+      } else {
+        score = minimax_node(*child, depth - 1, alpha, beta, ctx);
+      }
+      node.state.undo_move(m, ui);
+      node.children.push_back({m, std::move(child)});
+
+      if (ctx.budget_exceeded()) return max_eval;
+      if (score > max_eval) {
+        max_eval = score;
+        best_move = m;
+      }
+      alpha = std::max(alpha, score);
+      if (beta <= alpha) break;
+    }
+    node.best_move = best_move;
+    node.best_score = max_eval;
+    return max_eval;
+  } else {
+    int min_eval = std::numeric_limits<int>::max();
+    std::optional<Move> best_move;
+    for (const Move& m : moves) {
+      State::UndoInfo ui = node.state.make_move(m);
+      int score;
+      bool terminal = false;
+      if (ui.captured && ui.captured->type == 'K') {
+        score = KING_CAPTURED_BLACK_WINS;
+        terminal = true;
+      }
+      auto child = std::make_unique<Node>();
+      child->state = node.state;
+      if (terminal) {
+        child->best_score = score;
+      } else {
+        score = minimax_node(*child, depth - 1, alpha, beta, ctx);
+      }
+      node.state.undo_move(m, ui);
+      node.children.push_back({m, std::move(child)});
+
+      if (ctx.budget_exceeded()) return min_eval;
+      if (score < min_eval) {
+        min_eval = score;
+        best_move = m;
+      }
+      beta = std::min(beta, score);
+      if (beta <= alpha) break;
+    }
+    node.best_move = best_move;
+    node.best_score = min_eval;
+    return min_eval;
+  }
+}
+
 void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
   SearchContext ctx;
   ctx.max_nodes = max_nodes;
@@ -80,34 +165,21 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
     auto moves = moves::generate(root.state);
     if (moves.empty()) break;
 
-    int best_score = root.state.white_to_play ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
-    std::optional<Move> best_move;
-    bool white_to_move = root.state.white_to_play;
+    // Save previous tree; we'll restore if budget exceeded mid-depth
+    decltype(root.children) saved_children = std::move(root.children);
+    auto saved_best_move = root.best_move;
+    auto saved_best_score = root.best_score;
+    root.children.clear();
 
-    for (const Move& m : moves) {
-      State::UndoInfo ui = root.state.make_move(m);
-      int score;
-      if (ui.captured && ui.captured->type == 'K')
-        score = white_to_move ? KING_CAPTURED_WHITE_WINS : KING_CAPTURED_BLACK_WINS;
-      else
-        score = minimax(root.state, d - 1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
-      root.state.undo_move(m, ui);
+    minimax_node(root, d, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
 
-      if (white_to_move) {
-        if (score > best_score) { best_score = score; best_move = m; }
-      } else {
-        if (score < best_score) { best_score = score; best_move = m; }
-      }
-
-      if (ctx.budget_exceeded()) break;
+    if (ctx.budget_exceeded()) {
+      root.children = std::move(saved_children);
+      root.best_move = saved_best_move;
+      root.best_score = saved_best_score;
+      break;
     }
-
-    if (best_move) {
-      root.best_move = *best_move;
-      root.best_score = best_score;
-    }
-
-    if (ctx.budget_exceeded()) break;
+    // Tree reflects last completed depth; continue to next depth
   }
 }
 

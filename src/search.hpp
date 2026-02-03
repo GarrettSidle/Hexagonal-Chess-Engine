@@ -36,6 +36,9 @@ struct SearchContext {
 // Returns score from white's perspective.
 int minimax(board::State& state, int depth, int alpha, int beta, SearchContext& ctx);
 
+// Minimax that builds Node tree while searching. Populates node.children.
+int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx);
+
 // Iterative deepening: run minimax at depth 1, 2, ... until stop() returns true or node budget exceeded.
 // stop() is checked at the start of each depth; pass nullptr to never stop early.
 void iterative_deepen(Node& root, int max_nodes = 1000, std::function<bool()> stop = nullptr);
