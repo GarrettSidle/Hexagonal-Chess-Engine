@@ -7,9 +7,10 @@
 #include <cctype>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
-int main() {
+int main(int argc, char** argv) {
   std::vector<std::string> board_lines;
   std::string line;
   bool have_board = false;
@@ -33,14 +34,15 @@ int main() {
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
-        hexchess::search::iterative_deepen(*root, 4, nullptr);
+        hexchess::search::iterative_deepen(*root, 4, []() { return false; });
         if (root->best_move) {
           const auto& mv = *root->best_move;
           auto piece = root->state.at(mv.from_col, mv.from_row);
           auto captured = root->state.at(mv.to_col, mv.to_row);
           char pt = piece ? piece->type : 'P';
           std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
-          std::cout << "Engine Move (White): " << hexchess::protocol::format_move_long(mv, pt, cap_type) << std::endl;
+          std::string eng_move_str = hexchess::protocol::format_move_long(mv, pt, cap_type);
+          std::cout << "Engine Move (White): " << eng_move_str << std::endl;
           root->state.make_move(mv);
           root->best_move = std::nullopt;
         } else {
@@ -125,14 +127,15 @@ int main() {
     root->best_move = std::nullopt;
 
     std::cout << "thinking....." << std::endl;
-    hexchess::search::iterative_deepen(*root, 4, nullptr);
+    hexchess::search::iterative_deepen(*root, 4, []() { return false; });
     if (root->best_move) {
       const auto& mv = *root->best_move;
       auto eng_piece = root->state.at(mv.from_col, mv.from_row);
       auto eng_captured = root->state.at(mv.to_col, mv.to_row);
       char eng_pt = eng_piece ? eng_piece->type : 'P';
       std::optional<char> eng_cap_type = eng_captured ? std::optional<char>(eng_captured->type) : std::nullopt;
-      std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): " << hexchess::protocol::format_move_long(mv, eng_pt, eng_cap_type) << std::endl;
+      std::string eng_move_str = hexchess::protocol::format_move_long(mv, eng_pt, eng_cap_type);
+      std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): " << eng_move_str << std::endl;
       root->state.make_move(mv);
       root->best_move = std::nullopt;
     } else {

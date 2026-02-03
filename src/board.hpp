@@ -20,7 +20,7 @@ inline int max_row_glinski(int col) {
 }
 
 inline int max_row_mccooey(int col) {
-  static const int rows[] = { 6, 7, 8, 9, 10, 11, 10, 8, 8, 7, 6 };
+  static const int rows[] = { 6, 7, 8, 9, 10, 11, 10, 9, 8, 7, 6 };
   return col >= 0 && col < 11 ? rows[col] : 0;
 }
 

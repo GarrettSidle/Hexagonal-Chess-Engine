@@ -60,11 +60,27 @@ std::optional<board::Move> parse_move(const std::string& s) {
     }
   }
   if (s.size() < 4) return std::nullopt;
-  int c1 = std::tolower(static_cast<unsigned char>(s[0])) - 'a';
-  int r1 = (s[1] >= '0' && s[1] <= '9') ? (s[1] - '0') - 1 : -1;
-  int c2 = std::tolower(static_cast<unsigned char>(s[2])) - 'a';
-  int r2 = (s[3] >= '0' && s[3] <= '9') ? (s[3] - '0') - 1 : -1;
-  if (c1 < 0 || c1 >= board::NUM_COLS || r1 < 0 || c2 < 0 || c2 >= board::NUM_COLS || r2 < 0) return std::nullopt;
+  size_t pos = 0;
+  int c1 = std::tolower(static_cast<unsigned char>(s[pos])) - 'a';
+  if (c1 < 0 || c1 >= board::NUM_COLS) return std::nullopt;
+  ++pos;
+  int r1 = 0;
+  while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') {
+    r1 = r1 * 10 + (s[pos] - '0');
+    ++pos;
+  }
+  r1 -= 1;
+  if (pos >= s.size() || r1 < 0) return std::nullopt;
+  int c2 = std::tolower(static_cast<unsigned char>(s[pos])) - 'a';
+  if (c2 < 0 || c2 >= board::NUM_COLS) return std::nullopt;
+  ++pos;
+  int r2 = 0;
+  while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') {
+    r2 = r2 * 10 + (s[pos] - '0');
+    ++pos;
+  }
+  r2 -= 1;
+  if (r2 < 0) return std::nullopt;
   return board::Move{ c1, r1, c2, r2, false, false, false };
 }
 

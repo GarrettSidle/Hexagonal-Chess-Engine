@@ -141,9 +141,23 @@ State::UndoInfo State::make_move(const Move& move) {
   Piece p = *from_sq;
   from_sq = std::nullopt;
 
-  if (move.en_passant) {
+  // Detect en passant when protocol sends compact notation without ep flag (e.g. GUI sends "a5b6")
+  bool is_ep = move.en_passant;
+  if (!is_ep && p.type == 'P' && move.from_col != move.to_col && !to_sq && prev_move) {
+    const Move& pm = *prev_move;
+    if (std::abs(pm.to_row - pm.from_row) == 2 && pm.to_col == move.to_col) {
+      bool moved_white = !white_to_play;
+      int ep_row = moved_white ? pm.to_row - 1 : pm.to_row + 1;
+      if (ep_row == move.to_row) is_ep = true;
+    }
+  }
+
+  if (is_ep) {
     int ep_col = move.to_col;
-    int ep_row = p.white ? move.to_row + 1 : move.to_row - 1;
+    // Captured pawn is one step from ep square in the direction the captured pawn moved from.
+    // White capturing: captured black pawn moved down (lower row) -> it's at to_row - 1.
+    // Black capturing: captured white pawn moved up (higher row) -> it's at to_row + 1.
+    int ep_row = p.white ? move.to_row - 1 : move.to_row + 1;
     if (on_board(ep_col, ep_row)) {
       ui.captured = cells[static_cast<size_t>(ep_col)][static_cast<size_t>(ep_row)];
       ui.was_ep = true;
@@ -178,8 +192,10 @@ void State::undo_move(const Move& move, const UndoInfo& undo) {
   from_sq = p;
   to_sq = std::nullopt;
 
-  if (undo.was_ep && undo.captured && on_board(move.to_col, move.to_row + (p.white ? 1 : -1)))
-    cells[static_cast<size_t>(move.to_col)][static_cast<size_t>(move.to_row + (p.white ? 1 : -1))] = *undo.captured;
+  // Restore en passant capture: captured pawn was at same offset as in make_move.
+  int ep_row = p.white ? move.to_row - 1 : move.to_row + 1;
+  if (undo.was_ep && undo.captured && on_board(move.to_col, ep_row))
+    cells[static_cast<size_t>(move.to_col)][static_cast<size_t>(ep_row)] = *undo.captured;
   else if (undo.captured)
     to_sq = *undo.captured;
 }
