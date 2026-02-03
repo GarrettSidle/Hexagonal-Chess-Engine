@@ -33,12 +33,44 @@ static const Dir KING[] = {
 static const Dir W_PAWN_CAP[] = { { -1, 0 }, { 1, 1 } };
 static const Dir B_PAWN_CAP[] = { { -1, -1 }, { 1, 0 } };
 
-bool is_starting_pawn_white_glinski(int col, int storage_row) {
+static bool is_starting_pawn_white_glinski(int col, int storage_row) {
   if (col < 6) return (col - 1) == storage_row;
   return (storage_row + col) == 9;
 }
-bool is_starting_pawn_black_glinski(int col, int storage_row) {
+static bool is_starting_pawn_black_glinski(int col, int storage_row) {
   return storage_row == 6;
+}
+static bool is_starting_pawn_white_mccooey(int col, int storage_row) {
+  if (col < 6) return (col - 2) == storage_row;
+  return (storage_row + col) == 8;
+}
+static bool is_starting_pawn_black_mccooey(int col, int storage_row) {
+  return storage_row == 7;
+}
+static bool is_starting_pawn_white_hexofen(int col, int storage_row) {
+  static const int rows[] = { 0, 0, 1, 1, 2, 2, 2, 1, 1, 0, 0 };
+  return col >= 0 && col < 11 && rows[col] == storage_row;
+}
+static bool is_starting_pawn_black_hexofen(int col, int storage_row) {
+  static const int rows[] = { 5, 6, 6, 7, 7, 8, 7, 7, 6, 6, 5 };
+  return col >= 0 && col < 11 && rows[col] == storage_row;
+}
+
+bool is_starting_pawn_white(const State& state, int col, int storage_row) {
+  switch (state.variant) {
+    case Variant::Glinski: return is_starting_pawn_white_glinski(col, storage_row);
+    case Variant::McCooey: return is_starting_pawn_white_mccooey(col, storage_row);
+    case Variant::Hexofen: return is_starting_pawn_white_hexofen(col, storage_row);
+  }
+  return false;
+}
+bool is_starting_pawn_black(const State& state, int col, int storage_row) {
+  switch (state.variant) {
+    case Variant::Glinski: return is_starting_pawn_black_glinski(col, storage_row);
+    case Variant::McCooey: return is_starting_pawn_black_mccooey(col, storage_row);
+    case Variant::Hexofen: return is_starting_pawn_black_hexofen(col, storage_row);
+  }
+  return false;
 }
 
 // En passant target square notation (if any). Only pawns double-step.
@@ -59,7 +91,7 @@ static void add_displacement_moves(std::vector<Move>& out, const State& state,
     int nc = col + dirs[i].dc;
     int nlog = logical + dirs[i].dr;
     int nr = get_storage_row(nc, nlog);
-    if (!State::on_board(nc, nr)) continue;
+    if (!state.on_board(nc, nr)) continue;
     std::optional<Piece> target = state.at(nc, nr);
     if (!target) {
       out.push_back(Move{ col, row, nc, nr, false, false, false });
@@ -78,7 +110,7 @@ static void add_straight_moves(std::vector<Move>& out, const State& state,
     for (;;) {
       c += dc; lr += dr;
       int sr = get_storage_row(c, lr);
-      if (!State::on_board(c, sr)) break;
+      if (!state.on_board(c, sr)) break;
       std::optional<Piece> target = state.at(c, sr);
       if (!target) {
         out.push_back(Move{ col, row, c, sr, false, false, false });
@@ -101,7 +133,7 @@ static void add_pawn_moves(std::vector<Move>& out, const State& state,
     int nc = col + cap_dirs[i].dc;
     int nlog = logical + cap_dirs[i].dr;
     int nr = get_storage_row(nc, nlog);
-    if (!State::on_board(nc, nr)) continue;
+    if (!state.on_board(nc, nr)) continue;
     if (square_notation(nc, nr) == ep_square) {
       out.push_back(Move{ col, row, nc, nr, true, true, false });
       continue;
@@ -113,15 +145,15 @@ static void add_pawn_moves(std::vector<Move>& out, const State& state,
 
   int forward_lr = piece_white ? logical + 1 : logical - 1;
   int forward_sr = get_storage_row(col, forward_lr);
-  if (!State::on_board(col, forward_sr)) return;
+  if (!state.on_board(col, forward_sr)) return;
   if (state.at(col, forward_sr)) return;  // blocked
   out.push_back(Move{ col, row, col, forward_sr, false, false, false });
 
-  bool starting = piece_white ? is_starting_pawn_white_glinski(col, row) : is_starting_pawn_black_glinski(col, row);
+  bool starting = piece_white ? is_starting_pawn_white(state, col, row) : is_starting_pawn_black(state, col, row);
   if (!starting) return;
   int double_lr = piece_white ? logical + 2 : logical - 2;
   int double_sr = get_storage_row(col, double_lr);
-  if (!State::on_board(col, double_sr)) return;
+  if (!state.on_board(col, double_sr)) return;
   if (state.at(col, double_sr)) return;
   out.push_back(Move{ col, row, col, double_sr, false, false, false });
 }
@@ -142,7 +174,7 @@ std::vector<Move> generate(const State& state) {
   bool white_to_move = state.white_to_play;
 
   for (int c = 0; c < NUM_COLS; ++c) {
-    int maxr = max_row_glinski(c);
+    int maxr = max_row(state.variant, c);
     for (int r = 0; r < maxr; ++r) {
       std::optional<Piece> sq = state.at(c, r);
       if (!sq || sq->white != white_to_move) continue;

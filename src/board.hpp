@@ -8,12 +8,29 @@
 namespace hexchess {
 namespace board {
 
+// Variant: 0 = Glinski, 1 = McCooey, 2 = Hexofen.
+enum class Variant { Glinski = 0, McCooey = 1, Hexofen = 2 };
+
 // Glinski: 11 columns, variable rows per column.
 // col 0: 6 rows, col 1: 7, ... col 5: 11, col 6: 10, ... col 10: 6.
 constexpr int NUM_COLS = 11;
 
 inline int max_row_glinski(int col) {
   return col <= 5 ? 6 + col : 16 - col;
+}
+
+inline int max_row_mccooey(int col) {
+  static const int rows[] = { 6, 7, 8, 9, 10, 11, 10, 8, 8, 7, 6 };
+  return col >= 0 && col < 11 ? rows[col] : 0;
+}
+
+inline int max_row_hexofen(int col) {
+  return max_row_glinski(col);  // same shape as Glinski
+}
+
+inline int max_row(Variant v, int col) {
+  if (v == Variant::McCooey) return max_row_mccooey(col);
+  return max_row_glinski(col);  // Glinski and Hexofen
 }
 
 // Logical row (for move direction math) vs storage row (array index).
@@ -47,13 +64,17 @@ struct State {
   std::vector<std::vector<Square>> cells;
   bool white_to_play = true;
   std::optional<Move> prev_move;
+  Variant variant = Variant::Glinski;
 
   State();
-  // Build from Glinski initial position.
+  // Build from Glinski / McCooey / Hexofen initial position.
   void set_glinski();
+  void set_mccooey();
+  void set_hexofen();
 
-  // (col, storage_row) in bounds for Glinski?
-  static bool on_board(int col, int storage_row);
+  // (col, storage_row) in bounds for current variant?
+  bool on_board(int col, int storage_row) const;
+  static bool on_board(Variant v, int col, int storage_row);
 
   // Get piece at (col, storage_row). Returns nullopt if off-board or empty.
   std::optional<Piece> at(int col, int storage_row) const;

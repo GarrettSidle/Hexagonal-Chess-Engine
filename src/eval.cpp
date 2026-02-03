@@ -20,7 +20,7 @@ int piece_value(char type) {
 int evaluate(const board::State& state) {
   int score = 0;
   for (int c = 0; c < board::NUM_COLS; ++c) {
-    int maxr = board::max_row_glinski(c);
+    int maxr = board::max_row(state.variant, c);
     for (int r = 0; r < maxr; ++r) {
       auto sq = state.at(c, r);
       if (!sq) continue;

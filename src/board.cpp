@@ -1,4 +1,5 @@
 #include "board.hpp"
+#include <cstring>
 #include <stdexcept>
 
 namespace hexchess {
@@ -11,6 +12,7 @@ State::State() {
 }
 
 void State::set_glinski() {
+  variant = Variant::Glinski;
   // Glinski initial position (from Utils.cs glinskiBoard).
   const char* glinski[] = {
     "      ",           // col 0: 6
@@ -28,6 +30,7 @@ void State::set_glinski() {
   for (int c = 0; c < NUM_COLS; ++c) {
     int maxr = max_row_glinski(c);
     const char* row_str = glinski[c];
+    cells[c].resize(static_cast<size_t>(maxr));
     for (int r = 0; r < maxr; ++r) {
       char ch = row_str[r];
       if (ch == ' ' || ch == '\0') {
@@ -44,14 +47,88 @@ void State::set_glinski() {
   prev_move = std::nullopt;
 }
 
-bool State::on_board(int col, int storage_row) {
+void State::set_mccooey() {
+  variant = Variant::McCooey;
+  const char* mcCooey[] = {
+    "      ",
+    "       ",
+    "P      p",
+    "RP     pr",
+    "QN P   pnq",
+    "BBB P  pbbb",
+    "K NP   pnk",
+    "RP     pr",
+    "P      p",
+    "       ",
+    "      ",
+  };
+  for (int c = 0; c < NUM_COLS; ++c) {
+    int maxr = max_row_mccooey(c);
+    cells[c].resize(static_cast<size_t>(maxr));
+    const char* row_str = mcCooey[c];
+    for (int r = 0; r < maxr; ++r) {
+      char ch = r < static_cast<int>(strlen(row_str)) ? row_str[r] : ' ';
+      if (ch == ' ' || ch == '\0') {
+        cells[c][static_cast<size_t>(r)] = std::nullopt;
+      } else {
+        Piece p;
+        p.type = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        p.white = (ch >= 'A' && ch <= 'Z');
+        cells[c][static_cast<size_t>(r)] = p;
+      }
+    }
+  }
+  white_to_play = true;
+  prev_move = std::nullopt;
+}
+
+void State::set_hexofen() {
+  variant = Variant::Hexofen;
+  const char* hexofen[] = {
+    "P    p",      // col 0: 6
+    "P     p",     // col 1: 7
+    "NP    pb",    // col 2: 8
+    "RP     pr",   // col 3: 9
+    "BNP   pnq",   // col 4: 10
+    "KBP     pbk", // col 5: 11 (K,B,P,4 spaces,p,b,k)
+    "QNP   pnb",   // col 6: 10
+    "RP     pr",   // col 7: 9
+    "BP    pn",    // col 8: 8
+    "P     p",     // col 9: 7
+    "P    p",      // col 10: 6
+  };
+  for (int c = 0; c < NUM_COLS; ++c) {
+    int maxr = max_row_hexofen(c);
+    cells[c].resize(static_cast<size_t>(maxr));
+    const char* row_str = hexofen[c];
+    for (int r = 0; r < maxr; ++r) {
+      char ch = r < static_cast<int>(strlen(row_str)) ? row_str[r] : ' ';
+      if (ch == ' ' || ch == '\0') {
+        cells[c][static_cast<size_t>(r)] = std::nullopt;
+      } else {
+        Piece p;
+        p.type = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        p.white = (ch >= 'A' && ch <= 'Z');
+        cells[c][static_cast<size_t>(r)] = p;
+      }
+    }
+  }
+  white_to_play = true;
+  prev_move = std::nullopt;
+}
+
+bool State::on_board(int col, int storage_row) const {
+  return State::on_board(variant, col, storage_row);
+}
+
+bool State::on_board(Variant v, int col, int storage_row) {
   if (col < 0 || col >= NUM_COLS) return false;
-  int maxr = max_row_glinski(col);
+  int maxr = max_row(v, col);
   return storage_row >= 0 && storage_row < maxr;
 }
 
 std::optional<Piece> State::at(int col, int storage_row) const {
-  if (!State::on_board(col, storage_row)) return std::nullopt;
+  if (!on_board(col, storage_row)) return std::nullopt;
   return cells[static_cast<size_t>(col)][static_cast<size_t>(storage_row)];
 }
 
@@ -67,7 +144,7 @@ State::UndoInfo State::make_move(const Move& move) {
   if (move.en_passant) {
     int ep_col = move.to_col;
     int ep_row = p.white ? move.to_row + 1 : move.to_row - 1;
-    if (State::on_board(ep_col, ep_row)) {
+    if (on_board(ep_col, ep_row)) {
       ui.captured = cells[static_cast<size_t>(ep_col)][static_cast<size_t>(ep_row)];
       ui.was_ep = true;
       cells[static_cast<size_t>(ep_col)][static_cast<size_t>(ep_row)] = std::nullopt;
@@ -101,7 +178,7 @@ void State::undo_move(const Move& move, const UndoInfo& undo) {
   from_sq = p;
   to_sq = std::nullopt;
 
-  if (undo.was_ep && undo.captured && State::on_board(move.to_col, move.to_row + (p.white ? 1 : -1)))
+  if (undo.was_ep && undo.captured && on_board(move.to_col, move.to_row + (p.white ? 1 : -1)))
     cells[static_cast<size_t>(move.to_col)][static_cast<size_t>(move.to_row + (p.white ? 1 : -1))] = *undo.captured;
   else if (undo.captured)
     to_sq = *undo.captured;

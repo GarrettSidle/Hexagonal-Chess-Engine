@@ -28,13 +28,11 @@ int main() {
       std::string lower;
       lower.resize(line.size());
       std::transform(line.begin(), line.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      if (lower == "glinski white") {
-        root = std::make_unique<hexchess::search::Node>();
-        root->state.set_glinski();
+      auto start_engine_white = [&root, &have_board, &engine_plays_white](const char* pos_name) {
         have_board = true;
         engine_plays_white = true;
-        std::cout << "position glinski (white to move)" << std::endl;
-        std::cout << "thinking..." << std::endl;
+        std::cout << "position " << pos_name << " (white to move)" << std::endl;
+        std::cout << "thinking....." << std::endl;
         hexchess::search::iterative_deepen(*root, 4, nullptr);
         if (root->best_move) {
           const auto& mv = *root->best_move;
@@ -42,17 +40,41 @@ int main() {
           auto captured = root->state.at(mv.to_col, mv.to_row);
           char pt = piece ? piece->type : 'P';
           std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
-          std::cout << "bestmove " << hexchess::protocol::format_move_long(mv, pt, cap_type) << std::endl;
+          std::cout << "Engine Move (White): " << hexchess::protocol::format_move_long(mv, pt, cap_type) << std::endl;
           root->state.make_move(mv);
           root->best_move = std::nullopt;
         } else {
-          std::cout << "bestmove (none)" << std::endl;
+          std::cout << "Engine Move (White): (none)" << std::endl;
         }
+      };
+      auto start_position = [&root, &have_board](const char* pos_name) {
+        have_board = true;
+        std::cout << "position " << pos_name << " (white to move)" << std::endl;
+      };
+      if (lower == "glinski white") {
+        root = std::make_unique<hexchess::search::Node>();
+        root->state.set_glinski();
+        start_engine_white("glinski");
       } else if (lower == "glinski") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_glinski();
-        have_board = true;
-        std::cout << "position glinski (white to move)" << std::endl;
+        start_position("glinski");
+      } else if (lower == "mccooey white") {
+        root = std::make_unique<hexchess::search::Node>();
+        root->state.set_mccooey();
+        start_engine_white("mccooey");
+      } else if (lower == "mccooey") {
+        root = std::make_unique<hexchess::search::Node>();
+        root->state.set_mccooey();
+        start_position("mccooey");
+      } else if (lower == "hexofen white") {
+        root = std::make_unique<hexchess::search::Node>();
+        root->state.set_hexofen();
+        start_engine_white("hexofen");
+      } else if (lower == "hexofen") {
+        root = std::make_unique<hexchess::search::Node>();
+        root->state.set_hexofen();
+        start_position("hexofen");
       } else {
         board_lines.push_back(line);
         if (board_lines.size() == 12) {
@@ -89,23 +111,32 @@ int main() {
       continue;
     }
 
+    // Player just moved; state.white_to_play is still who moved (white moved if true).
+    bool player_played_white = root->state.white_to_play;
+    auto piece = root->state.at(move_opt->from_col, move_opt->from_row);
+    auto captured = root->state.at(move_opt->to_col, move_opt->to_row);
+    char pt = piece ? piece->type : 'P';
+    std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
+    std::string player_notation = hexchess::protocol::format_move_long(*move_opt, pt, cap_type);
+    std::cout << "Player Move (" << (player_played_white ? "White" : "Black") << "): " << player_notation << std::endl;
+
     root->state.make_move(*move_opt);
     root->children.clear();
     root->best_move = std::nullopt;
 
-    std::cout << "thinking..." << std::endl;
+    std::cout << "thinking....." << std::endl;
     hexchess::search::iterative_deepen(*root, 4, nullptr);
     if (root->best_move) {
       const auto& mv = *root->best_move;
-      auto piece = root->state.at(mv.from_col, mv.from_row);
-      auto captured = root->state.at(mv.to_col, mv.to_row);
-      char pt = piece ? piece->type : 'P';
-      std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
-      std::cout << "bestmove " << hexchess::protocol::format_move_long(mv, pt, cap_type) << std::endl;
+      auto eng_piece = root->state.at(mv.from_col, mv.from_row);
+      auto eng_captured = root->state.at(mv.to_col, mv.to_row);
+      char eng_pt = eng_piece ? eng_piece->type : 'P';
+      std::optional<char> eng_cap_type = eng_captured ? std::optional<char>(eng_captured->type) : std::nullopt;
+      std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): " << hexchess::protocol::format_move_long(mv, eng_pt, eng_cap_type) << std::endl;
       root->state.make_move(mv);
       root->best_move = std::nullopt;
     } else {
-      std::cout << "bestmove (none)" << std::endl;
+      std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): (none)" << std::endl;
     }
   }
 
