@@ -1,31 +1,42 @@
-# Hex Chess Engine
+# Hexagonal Chess Engine (C++)
 
-Rust hexagonal chess engine for Glinski, McCooey, and Hexofen variants. Used by the [Hexagonal Chess GUI](..) for evaluation and bot play.
+Glinski hexagonal chess engine. Bot plays **black**; white is the opponent.
 
 ## Build
 
+**With CMake:**
+
 ```bash
-cargo build --release
+mkdir build && cd build
+cmake ..
+cmake --build .
 ```
 
-Binary: `target/release/hex_chess_engine.exe` (Windows) or `target/release/hex_chess_engine` (Unix)
+**With Make (g++):**
+
+```bash
+make
+```
 
 ## Protocol (stdin/stdout)
 
-| Command | Description |
-|---------|-------------|
-| `position <variant> startpos [stm w\|b]` | Set starting position |
-| `position <variant> pieces <sq>:<pc>;... [stm w\|b]` | Set custom position (e.g. `A1:K;A2:P`) |
-| `eval` | Return evaluation (positive = white better) |
-| `quit` | Exit |
+1. **Start a game**: Type the variant name to load the default starting position.
 
-**Variants:** `glinski`, `mccooey`, `hexofen`
+   - **glinski** – Glinski hexagonal chess (white to move).
+
+   Alternatively, send 12 lines (one per column A–K, then `white` or `black`) for a custom position.
+
+2. **move** (white): Type your move as `move a1b2` or just `a1b2`. The engine applies it, searches, and immediately prints `bestmove <from><to>` (black’s reply), then applies that move. Repeat with your next move.
+
+3. **quit**: Exit.
 
 ## Example
 
 ```
-position glinski startpos
-eval
+glinski
+b2c3
+bestmove e6e5
+d4e5
+bestmove ...
+quit
 ```
-
-Response: `eval 0` (even position)

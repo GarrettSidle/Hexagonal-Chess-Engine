@@ -1,0 +1,188 @@
+#include "moves.hpp"
+#include "board.hpp"
+#include <algorithm>
+#include <cmath>
+
+namespace hexchess {
+namespace moves {
+
+using namespace board;
+
+// Direction (col_delta, logical_row_delta).
+struct Dir { int dc, dr; };
+
+// Horizontal (rook) directions - 6.
+static const Dir HORIZ[] = {
+  { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 }, { 1, 1 }, { -1, -1 }
+};
+// Diagonal (bishop) directions - 6.
+static const Dir DIAG[] = {
+  { -2, -1 }, { 2, 1 }, { 1, 2 }, { -1, 1 }, { 1, -1 }, { -1, -2 }
+};
+// Knight jumps - 12.
+static const Dir KNIGHT[] = {
+  { 1, 3 }, { 2, 3 }, { 3, 1 }, { 3, 2 }, { 2, -1 }, { 1, -2 },
+  { -1, -3 }, { -2, -3 }, { -3, -1 }, { -3, -2 }, { -2, 1 }, { -1, 2 }
+};
+// King - 12 (horizontal + diagonal).
+static const Dir KING[] = {
+  { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 }, { 1, 1 }, { -1, -1 },
+  { -2, -1 }, { 2, 1 }, { 1, 2 }, { -1, 1 }, { 1, -1 }, { -1, -2 }
+};
+// White pawn capture directions (col, logical_row).
+static const Dir W_PAWN_CAP[] = { { -1, 0 }, { 1, 1 } };
+static const Dir B_PAWN_CAP[] = { { -1, -1 }, { 1, 0 } };
+
+bool is_starting_pawn_white_glinski(int col, int storage_row) {
+  if (col < 6) return (col - 1) == storage_row;
+  return (storage_row + col) == 9;
+}
+bool is_starting_pawn_black_glinski(int col, int storage_row) {
+  return storage_row == 6;
+}
+
+// En passant target square notation (if any). Only pawns double-step.
+static std::string en_passant_square(const State& state) {
+  if (!state.prev_move) return "";
+  const Move& pm = *state.prev_move;
+  if (std::abs(pm.to_row - pm.from_row) != 2) return "";
+  int ep_col = pm.to_col;
+  bool moved_white = !state.white_to_play;
+  int ep_row = moved_white ? pm.to_row - 1 : pm.to_row + 1;
+  return square_notation(ep_col, ep_row);
+}
+
+static void add_displacement_moves(std::vector<Move>& out, const State& state,
+    int col, int row, bool piece_white, char piece_type, const Dir* dirs, int n) {
+  int logical = get_logical_row(col, row);
+  for (int i = 0; i < n; ++i) {
+    int nc = col + dirs[i].dc;
+    int nlog = logical + dirs[i].dr;
+    int nr = get_storage_row(nc, nlog);
+    if (!State::on_board(nc, nr)) continue;
+    std::optional<Piece> target = state.at(nc, nr);
+    if (!target) {
+      out.push_back(Move{ col, row, nc, nr, false, false, false });
+    } else if (target->white != piece_white) {
+      out.push_back(Move{ col, row, nc, nr, true, false, false });
+    }
+  }
+}
+
+static void add_straight_moves(std::vector<Move>& out, const State& state,
+    int col, int row, bool piece_white, const Dir* dirs, int n) {
+  int logical = get_logical_row(col, row);
+  for (int i = 0; i < n; ++i) {
+    int dc = dirs[i].dc, dr = dirs[i].dr;
+    int c = col, lr = logical;
+    for (;;) {
+      c += dc; lr += dr;
+      int sr = get_storage_row(c, lr);
+      if (!State::on_board(c, sr)) break;
+      std::optional<Piece> target = state.at(c, sr);
+      if (!target) {
+        out.push_back(Move{ col, row, c, sr, false, false, false });
+      } else {
+        if (target->white != piece_white)
+          out.push_back(Move{ col, row, c, sr, true, false, false });
+        break;
+      }
+    }
+  }
+}
+
+static void add_pawn_moves(std::vector<Move>& out, const State& state,
+    int col, int row, bool piece_white) {
+  int logical = get_logical_row(col, row);
+  const Dir* cap_dirs = piece_white ? W_PAWN_CAP : B_PAWN_CAP;
+  std::string ep_square = en_passant_square(state);
+
+  for (int i = 0; i < 2; ++i) {
+    int nc = col + cap_dirs[i].dc;
+    int nlog = logical + cap_dirs[i].dr;
+    int nr = get_storage_row(nc, nlog);
+    if (!State::on_board(nc, nr)) continue;
+    if (square_notation(nc, nr) == ep_square) {
+      out.push_back(Move{ col, row, nc, nr, true, true, false });
+      continue;
+    }
+    std::optional<Piece> target = state.at(nc, nr);
+    if (target && target->white != piece_white)
+      out.push_back(Move{ col, row, nc, nr, true, false, false });
+  }
+
+  int forward_lr = piece_white ? logical + 1 : logical - 1;
+  int forward_sr = get_storage_row(col, forward_lr);
+  if (!State::on_board(col, forward_sr)) return;
+  if (state.at(col, forward_sr)) return;  // blocked
+  out.push_back(Move{ col, row, col, forward_sr, false, false, false });
+
+  bool starting = piece_white ? is_starting_pawn_white_glinski(col, row) : is_starting_pawn_black_glinski(col, row);
+  if (!starting) return;
+  int double_lr = piece_white ? logical + 2 : logical - 2;
+  int double_sr = get_storage_row(col, double_lr);
+  if (!State::on_board(col, double_sr)) return;
+  if (state.at(col, double_sr)) return;
+  out.push_back(Move{ col, row, col, double_sr, false, false, false });
+}
+
+// Promotion: black pawn on row 0; white on last rank (left edge row-col==5, right col+row==15).
+static bool is_promotion(const State& state, int to_col, int to_row, bool piece_white) {
+  if (piece_white) {
+    if (to_col <= 5 && (to_row - to_col) == 5) return true;
+    if (to_col > 5 && (to_col + to_row) == 15) return true;
+  } else {
+    if (to_row == 0) return true;
+  }
+  return false;
+}
+
+std::vector<Move> generate(const State& state) {
+  std::vector<Move> result;
+  bool white_to_move = state.white_to_play;
+
+  for (int c = 0; c < NUM_COLS; ++c) {
+    int maxr = max_row_glinski(c);
+    for (int r = 0; r < maxr; ++r) {
+      std::optional<Piece> sq = state.at(c, r);
+      if (!sq || sq->white != white_to_move) continue;
+      char t = sq->type;
+      bool pw = sq->white;
+
+      switch (t) {
+        case 'P':
+          add_pawn_moves(result, state, c, r, pw);
+          break;
+        case 'R':
+          add_straight_moves(result, state, c, r, pw, HORIZ, 6);
+          break;
+        case 'N':
+          add_displacement_moves(result, state, c, r, pw, t, KNIGHT, 12);
+          break;
+        case 'B':
+          add_straight_moves(result, state, c, r, pw, DIAG, 6);
+          break;
+        case 'K':
+          add_displacement_moves(result, state, c, r, pw, t, KING, 12);
+          break;
+        case 'Q':
+          add_straight_moves(result, state, c, r, pw, HORIZ, 6);
+          add_straight_moves(result, state, c, r, pw, DIAG, 6);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  // Mark promotions.
+  for (Move& m : result) {
+    std::optional<Piece> p = state.at(m.from_col, m.from_row);
+    if (p && p->type == 'P' && is_promotion(state, m.to_col, m.to_row, p->white))
+      m.promotion = true;
+  }
+  return result;
+}
+
+}  // namespace moves
+}  // namespace hexchess
