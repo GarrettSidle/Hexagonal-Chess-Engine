@@ -19,6 +19,9 @@
     <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\protocol.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\gephi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\CMakeLists.txt" />

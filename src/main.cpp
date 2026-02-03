@@ -3,17 +3,30 @@
 #include "eval.hpp"
 #include "search.hpp"
 #include "protocol.hpp"
+#include "gephi.hpp"
 #include <algorithm>
+#include <chrono>
 #include <cctype>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
 
+static std::string format_game_timestamp(std::chrono::system_clock::time_point tp) {
+  auto t = std::chrono::system_clock::to_time_t(tp);
+  std::ostringstream oss;
+  oss << std::put_time(std::localtime(&t), "%Y-%m-%d_%H-%M-%S");
+  return oss.str();
+}
+
 int main(int argc, char** argv) {
   std::vector<std::string> board_lines;
   std::string line;
   bool have_board = false;
+  bool game_start_time_set = false;
+  std::chrono::system_clock::time_point game_start_time;
+  int engine_response_count = 0;
   bool engine_plays_white = false;
   std::optional<hexchess::board::State> state_opt;
   std::unique_ptr<hexchess::search::Node> root;
@@ -29,12 +42,19 @@ int main(int argc, char** argv) {
       std::string lower;
       lower.resize(line.size());
       std::transform(line.begin(), line.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      auto start_engine_white = [&root, &have_board, &engine_plays_white](const char* pos_name) {
+      auto start_engine_white = [&](const char* pos_name) {
         have_board = true;
+        if (!game_start_time_set) {
+          game_start_time = std::chrono::system_clock::now();
+          game_start_time_set = true;
+        }
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
         hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+        engine_response_count++;
+        std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
+        hexchess::gephi::export_tree(*root, gephi_path);
         if (root->best_move) {
           const auto& mv = *root->best_move;
           auto piece = root->state.at(mv.from_col, mv.from_row);
@@ -45,12 +65,17 @@ int main(int argc, char** argv) {
           std::cout << "Engine Move (White): " << eng_move_str << std::endl;
           root->state.make_move(mv);
           root->best_move = std::nullopt;
+          root->children.clear();
         } else {
           std::cout << "Engine Move (White): (none)" << std::endl;
         }
       };
-      auto start_position = [&root, &have_board](const char* pos_name) {
+      auto start_position = [&](const char* pos_name) {
         have_board = true;
+        if (!game_start_time_set) {
+          game_start_time = std::chrono::system_clock::now();
+          game_start_time_set = true;
+        }
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
       };
       if (lower == "glinski white") {
@@ -87,6 +112,10 @@ int main(int argc, char** argv) {
             continue;
           }
           have_board = true;
+          if (!game_start_time_set) {
+            game_start_time = std::chrono::system_clock::now();
+            game_start_time_set = true;
+          }
           root = std::make_unique<hexchess::search::Node>();
           root->state = *state_opt;
         }
@@ -128,6 +157,9 @@ int main(int argc, char** argv) {
 
     std::cout << "thinking....." << std::endl;
     hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+    engine_response_count++;
+    std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
+    hexchess::gephi::export_tree(*root, gephi_path);
     if (root->best_move) {
       const auto& mv = *root->best_move;
       auto eng_piece = root->state.at(mv.from_col, mv.from_row);
@@ -138,6 +170,7 @@ int main(int argc, char** argv) {
       std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): " << eng_move_str << std::endl;
       root->state.make_move(mv);
       root->best_move = std::nullopt;
+      root->children.clear();
     } else {
       std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): (none)" << std::endl;
     }

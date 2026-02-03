@@ -338,6 +338,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\eval.cpp" />
     <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\search.cpp" />
     <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\protocol.cpp" />
+    <ClCompile Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\src\gephi.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

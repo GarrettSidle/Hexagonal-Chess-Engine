@@ -10,6 +10,7 @@ add_executable(engine
   src/eval.cpp
   src/search.cpp
   src/protocol.cpp
+  src/gephi.cpp
 )
 
 target_include_directories(engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
