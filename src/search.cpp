@@ -12,6 +12,8 @@ const int KING_CAPTURED_BLACK_WINS = -10000;
 const int CULL_MARGIN = 10;
 const int CULL_MIN_DEPTH = 4;
 
+static constexpr int TT_SIZE = 1 << 18;  // 256k entries
+
 int minimax(State& state, int depth, int alpha, int beta, SearchContext& ctx) {
   ctx.nodes_used++;
   if (ctx.budget_exceeded()) return eval::evaluate(state);
@@ -69,7 +71,7 @@ int minimax(State& state, int depth, int alpha, int beta, SearchContext& ctx) {
   }
 }
 
-int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx) {
+int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchContext& ctx) {
   ctx.nodes_used++;
   if (ctx.budget_exceeded()) return eval::evaluate(node.state);
 
@@ -77,6 +79,13 @@ int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx)
   if (moves.empty()) return eval::evaluate(node.state);
 
   if (depth == 0) return eval::evaluate(node.state);
+
+  uint64_t h = node.state.hash();
+  if (ctx.tt && ctx.tt_mask > 0) {
+    const TTEntry& entry = (*ctx.tt)[h & ctx.tt_mask];
+    if (entry.key == h && entry.depth >= depth)
+      return entry.score;
+  }
 
   // Futility pruning: at depth >= 4, skip children if static eval is obviously bad
   if (depth >= CULL_MIN_DEPTH) {
@@ -103,7 +112,7 @@ int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx)
       if (terminal) {
         child->best_score = score;
       } else {
-        score = minimax_node(*child, depth - 1, alpha, beta, ctx);
+        score = minimax_node(*child, depth - 1, ply + 1, alpha, beta, ctx);
       }
       node.state.undo_move(m, ui);
       node.children.push_back({m, std::move(child)});
@@ -118,6 +127,13 @@ int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx)
     }
     node.best_move = best_move;
     node.best_score = max_eval;
+    if (ctx.tt && ctx.tt_mask > 0) {
+      TTEntry& e = (*ctx.tt)[h & ctx.tt_mask];
+      e.key = h;
+      e.score = max_eval;
+      e.depth = depth;
+      e.flag = 0;
+    }
     return max_eval;
   } else {
     int min_eval = std::numeric_limits<int>::max();
@@ -135,7 +151,7 @@ int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx)
       if (terminal) {
         child->best_score = score;
       } else {
-        score = minimax_node(*child, depth - 1, alpha, beta, ctx);
+        score = minimax_node(*child, depth - 1, ply + 1, alpha, beta, ctx);
       }
       node.state.undo_move(m, ui);
       node.children.push_back({m, std::move(child)});
@@ -150,13 +166,24 @@ int minimax_node(Node& node, int depth, int alpha, int beta, SearchContext& ctx)
     }
     node.best_move = best_move;
     node.best_score = min_eval;
+    if (ctx.tt && ctx.tt_mask > 0) {
+      TTEntry& e = (*ctx.tt)[h & ctx.tt_mask];
+      e.key = h;
+      e.score = min_eval;
+      e.depth = depth;
+      e.flag = 0;
+    }
     return min_eval;
   }
 }
 
 void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
+  static std::vector<TTEntry> g_tt(TT_SIZE);
+
   SearchContext ctx;
   ctx.max_nodes = max_nodes;
+  ctx.tt = &g_tt;
+  ctx.tt_mask = TT_SIZE - 1;
 
   for (int d = 1; ; ++d) {
     if (stop && stop()) break;
@@ -171,7 +198,7 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
     auto saved_best_score = root.best_score;
     root.children.clear();
 
-    minimax_node(root, d, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
+    minimax_node(root, d, 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
 
     if (ctx.budget_exceeded()) {
       root.children = std::move(saved_children);

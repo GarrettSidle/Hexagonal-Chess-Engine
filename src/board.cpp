@@ -1,9 +1,63 @@
 #include "board.hpp"
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 
 namespace hexchess {
 namespace board {
+
+// Zobrist keys: pieces + side-to-move + en-passant square
+static constexpr int ZOBRIST_COLS = 11;
+static constexpr int ZOBRIST_ROWS = 11;
+static constexpr int ZOBRIST_PIECES = 12;  // 6 types * 2 colors
+static constexpr int ZOBRIST_PIECE_KEYS = ZOBRIST_COLS * ZOBRIST_ROWS * ZOBRIST_PIECES;
+static constexpr int ZOBRIST_EP_KEYS = ZOBRIST_COLS * ZOBRIST_ROWS;
+static constexpr int ZOBRIST_SIZE = ZOBRIST_PIECE_KEYS + 1 + ZOBRIST_EP_KEYS;
+
+static uint64_t g_zobrist_keys[ZOBRIST_SIZE];
+static bool g_zobrist_init = false;
+
+static void init_zobrist() {
+  if (g_zobrist_init) return;
+  for (int i = 0; i < ZOBRIST_SIZE; ++i) {
+    g_zobrist_keys[i] = (static_cast<uint64_t>(rand()) << 32) | rand();
+  }
+  g_zobrist_init = true;
+}
+
+static int piece_to_index(char type, bool white) {
+  int t = 0;
+  switch (type) {
+    case 'P': t = 0; break; case 'R': t = 1; break; case 'N': t = 2; break;
+    case 'B': t = 3; break; case 'K': t = 4; break; case 'Q': t = 5; break;
+    default: t = 0; break;
+  }
+  return t * 2 + (white ? 0 : 1);
+}
+
+uint64_t State::hash() const {
+  init_zobrist();
+  uint64_t h = 0;
+  for (int c = 0; c < NUM_COLS; ++c) {
+    int maxr = static_cast<int>(cells[static_cast<size_t>(c)].size());
+    for (int r = 0; r < maxr && r < ZOBRIST_ROWS; ++r) {
+      auto sq = at(c, r);
+      if (sq) {
+        int idx = (c * ZOBRIST_ROWS + r) * ZOBRIST_PIECES + piece_to_index(sq->type, sq->white);
+        h ^= g_zobrist_keys[idx];
+      }
+    }
+  }
+  if (white_to_play) h ^= g_zobrist_keys[ZOBRIST_PIECE_KEYS];
+  if (prev_move && std::abs(prev_move->to_row - prev_move->from_row) == 2) {
+    bool moved_white = !white_to_play;
+    int ep_row = moved_white ? prev_move->to_row - 1 : prev_move->to_row + 1;
+    int ep_idx = ZOBRIST_PIECE_KEYS + 1 + prev_move->to_col * ZOBRIST_ROWS + ep_row;
+    if (ep_idx < ZOBRIST_SIZE) h ^= g_zobrist_keys[ep_idx];
+  }
+  return h;
+}
 
 State::State() {
   cells.resize(NUM_COLS);

@@ -79,6 +79,9 @@ struct State {
   // Get piece at (col, storage_row). Returns nullopt if off-board or empty.
   std::optional<Piece> at(int col, int storage_row) const;
 
+  // Zobrist hash for transposition table. Includes side-to-move.
+  uint64_t hash() const;
+
   // Make move; assumes legal. Updates prev_move for en passant.
   // Returns info needed to undo (captured piece, was en passant, old prev_move).
   struct UndoInfo {
