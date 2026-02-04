@@ -81,11 +81,19 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
   if (depth == 0) return eval::evaluate(node.state);
 
   uint64_t h = node.state.hash();
+  std::optional<Move> hash_move;
   if (ctx.tt && ctx.tt_mask > 0) {
     const TTEntry& entry = (*ctx.tt)[h & ctx.tt_mask];
-    if (entry.key == h && entry.depth >= depth)
-      return entry.score;
+    if (entry.key == h) {
+      hash_move = entry.best_move;
+      if (entry.depth >= depth)
+        return entry.score;
+    }
   }
+
+  std::optional<Move> k1 = (ply < MAX_PLY) ? ctx.killers[ply][0] : std::nullopt;
+  std::optional<Move> k2 = (ply < MAX_PLY) ? ctx.killers[ply][1] : std::nullopt;
+  moves::order_moves(moves, node.state, hash_move, k1, k2);
 
   // Futility pruning: at depth >= 4, skip children if static eval is obviously bad
   if (depth >= CULL_MIN_DEPTH) {
@@ -123,7 +131,13 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
         best_move = m;
       }
       alpha = std::max(alpha, score);
-      if (beta <= alpha) break;
+      if (beta <= alpha) {
+        if (!m.capture && !m.en_passant && ply < MAX_PLY) {
+          ctx.killers[ply][1] = ctx.killers[ply][0];
+          ctx.killers[ply][0] = m;
+        }
+        break;
+      }
     }
     node.best_move = best_move;
     node.best_score = max_eval;
@@ -133,6 +147,7 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
       e.score = max_eval;
       e.depth = depth;
       e.flag = 0;
+      e.best_move = best_move;
     }
     return max_eval;
   } else {
@@ -162,7 +177,13 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
         best_move = m;
       }
       beta = std::min(beta, score);
-      if (beta <= alpha) break;
+      if (beta <= alpha) {
+        if (!m.capture && !m.en_passant && ply < MAX_PLY) {
+          ctx.killers[ply][1] = ctx.killers[ply][0];
+          ctx.killers[ply][0] = m;
+        }
+        break;
+      }
     }
     node.best_move = best_move;
     node.best_score = min_eval;
@@ -172,6 +193,7 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
       e.score = min_eval;
       e.depth = depth;
       e.flag = 0;
+      e.best_move = best_move;
     }
     return min_eval;
   }

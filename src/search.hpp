@@ -3,6 +3,7 @@
 #include "board.hpp"
 #include "moves.hpp"
 #include "eval.hpp"
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -18,6 +19,7 @@ struct TTEntry {
   int score = 0;
   int depth = 0;
   uint8_t flag = 0;  // 0=exact, 1=lower_bound, 2=upper_bound
+  std::optional<board::Move> best_move;
 };
 
 struct SearchResult {
@@ -34,12 +36,16 @@ struct Node {
   std::vector<std::pair<board::Move, std::unique_ptr<Node>>> children;
 };
 
-// Search context: node budget, TT, and usage.
+// Killer moves: 2 slots per ply for non-capture cutoffs.
+static constexpr int MAX_PLY = 64;
+
+// Search context: node budget, TT, killers, and usage.
 struct SearchContext {
   int nodes_used = 0;
   int max_nodes = 1000;
   std::vector<TTEntry>* tt = nullptr;
   int tt_mask = 0;  // size - 1 for power-of-2 table
+  std::array<std::array<std::optional<board::Move>, 2>, MAX_PLY> killers{};
   bool budget_exceeded() const { return nodes_used >= max_nodes; }
 };
 

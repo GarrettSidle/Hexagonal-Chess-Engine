@@ -1,5 +1,6 @@
 #include "moves.hpp"
 #include "board.hpp"
+#include "eval.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -214,6 +215,62 @@ std::vector<Move> generate(const State& state) {
       m.promotion = true;
   }
   return result;
+}
+
+static bool moves_equal(const Move& a, const Move& b) {
+  return a.from_col == b.from_col && a.from_row == b.from_row &&
+         a.to_col == b.to_col && a.to_row == b.to_row;
+}
+
+static int mvv_lva_score(const State& state, const Move& m) {
+  auto victim = state.at(m.to_col, m.to_row);
+  auto attacker = state.at(m.from_col, m.from_row);
+  int victim_val = victim ? eval::piece_value(victim->type) : 0;
+  int attacker_val = attacker ? eval::piece_value(attacker->type) : 1;
+  return victim_val * 10 - attacker_val;  // higher = try first
+}
+
+void order_moves(std::vector<Move>& moves, const State& state,
+    std::optional<Move> hash_move, std::optional<Move> killer1, std::optional<Move> killer2) {
+  std::vector<Move> ordered;
+  ordered.reserve(moves.size());
+
+  auto is_hash = [&](const Move& m) {
+    return hash_move && moves_equal(m, *hash_move);
+  };
+  auto is_killer = [&](const Move& m) {
+    return (killer1 && moves_equal(m, *killer1)) || (killer2 && moves_equal(m, *killer2));
+  };
+
+  if (hash_move) {
+    for (auto it = moves.begin(); it != moves.end(); ++it) {
+      if (moves_equal(*it, *hash_move)) {
+        ordered.push_back(*it);
+        moves.erase(it);
+        break;
+      }
+    }
+  }
+
+  std::vector<Move> captures, killers, rest;
+  for (const Move& m : moves) {
+    if (m.capture || m.en_passant) {
+      captures.push_back(m);
+    } else if (is_killer(m)) {
+      killers.push_back(m);
+    } else {
+      rest.push_back(m);
+    }
+  }
+  std::sort(captures.begin(), captures.end(), [&](const Move& a, const Move& b) {
+    return mvv_lva_score(state, a) > mvv_lva_score(state, b);
+  });
+
+  for (const Move& m : captures) ordered.push_back(m);
+  for (const Move& m : killers) ordered.push_back(m);
+  for (const Move& m : rest) ordered.push_back(m);
+
+  moves = std::move(ordered);
 }
 
 }  // namespace moves
