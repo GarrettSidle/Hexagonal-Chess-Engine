@@ -5,14 +5,18 @@
 #include "protocol.hpp"
 #include "gephi.hpp"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cctype>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -34,8 +38,58 @@ static std::string get_executable_dir() {
 static std::string format_game_timestamp(std::chrono::system_clock::time_point tp) {
   auto t = std::chrono::system_clock::to_time_t(tp);
   std::ostringstream oss;
+#ifdef _WIN32
+  struct std::tm tm_buf;
+  if (localtime_s(&tm_buf, &t) == 0) {
+    oss << std::put_time(&tm_buf, "%Y-%m-%d_%H-%M-%S");
+  } else {
+    oss << "0000-00-00_00-00-00";
+  }
+#else
   oss << std::put_time(std::localtime(&t), "%Y-%m-%d_%H-%M-%S");
+#endif
   return oss.str();
+}
+
+// Pondering: I/O thread reads stdin so main loop can run search while waiting for opponent.
+static std::queue<std::string> g_input_queue;
+static std::mutex g_queue_mutex;
+static std::atomic<bool> g_quit_requested{false};
+static std::atomic<bool> g_io_thread_done{false};
+
+static void io_thread_func() {
+  std::string line;
+  while (!g_quit_requested && std::getline(std::cin, line)) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
+    std::lock_guard<std::mutex> lock(g_queue_mutex);
+    g_input_queue.push(std::move(line));
+  }
+  g_io_thread_done = true;
+}
+
+static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess::search::Node>* ponder_root) {
+  while (true) {
+    {
+      std::lock_guard<std::mutex> lock(g_queue_mutex);
+      if (!g_input_queue.empty()) {
+        std::string line = std::move(g_input_queue.front());
+        g_input_queue.pop();
+        return line;
+      }
+    }
+    if (g_io_thread_done) return "quit";
+
+    if (opponent_to_play && ponder_root && *ponder_root) {
+      // Use large node budget for pondering so we search deeper while waiting; stop lambda exits when input arrives
+      const int ponder_nodes = 100000;
+      hexchess::search::iterative_deepen(**ponder_root, ponder_nodes, []() {
+        std::lock_guard<std::mutex> lock(g_queue_mutex);
+        return !g_input_queue.empty() || g_quit_requested;
+      });
+    } else {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
 }
 
 int main(int argc, char** argv) {
@@ -52,13 +106,21 @@ int main(int argc, char** argv) {
   bool engine_plays_white = false;
   std::optional<hexchess::board::State> state_opt;
   std::unique_ptr<hexchess::search::Node> root;
+  std::unique_ptr<hexchess::search::Node> ponder_root;
 
-  while (std::getline(std::cin, line)) {
-    while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
+  std::thread io_thread(io_thread_func);
+
+  while (true) {
+    bool opponent_to_play = have_board && root &&
+        ((engine_plays_white && !root->state.white_to_play) || (!engine_plays_white && root->state.white_to_play));
+    line = get_next_line(opponent_to_play, &ponder_root);
 
     if (line.empty()) continue;
 
-    if (line == "quit") break;
+    if (line == "quit") {
+      g_quit_requested = true;
+      break;
+    }
 
     if (!have_board) {
       std::string lower;
@@ -91,6 +153,8 @@ int main(int argc, char** argv) {
         } else {
           std::cout << "Engine Move (White): (none)" << std::endl;
         }
+        ponder_root = std::make_unique<hexchess::search::Node>();
+        ponder_root->state = root->state;
       };
       auto start_position = [&](const char* pos_name) {
         have_board = true;
@@ -99,6 +163,8 @@ int main(int argc, char** argv) {
           game_start_time_set = true;
         }
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
+        ponder_root = std::make_unique<hexchess::search::Node>();
+        ponder_root->state = root->state;
       };
       if (lower == "glinski white") {
         root = std::make_unique<hexchess::search::Node>();
@@ -140,13 +206,14 @@ int main(int argc, char** argv) {
           }
           root = std::make_unique<hexchess::search::Node>();
           root->state = *state_opt;
+          ponder_root = std::make_unique<hexchess::search::Node>();
+          ponder_root->state = root->state;
         }
       }
       continue;
     }
 
     // Accept input when it's the opponent's turn (we respond with our move)
-    bool opponent_to_play = (engine_plays_white && !root->state.white_to_play) || (!engine_plays_white && root->state.white_to_play);
     if (!opponent_to_play) continue;
 
     std::string move_str;
@@ -164,6 +231,9 @@ int main(int argc, char** argv) {
       continue;
     }
 
+    // Try to reuse ponder result before clearing
+    hexchess::search::Node* ponder_child = ponder_root ? hexchess::search::find_child(*ponder_root, *move_opt) : nullptr;
+
     // Player just moved; state.white_to_play is still who moved (white moved if true).
     bool player_played_white = root->state.white_to_play;
     auto piece = root->state.at(move_opt->from_col, move_opt->from_row);
@@ -177,8 +247,20 @@ int main(int argc, char** argv) {
     root->children.clear();
     root->best_move = std::nullopt;
 
-    std::cout << "thinking....." << std::endl;
-    hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+    bool reused_ponder = false;
+    if (ponder_child) {
+      root->state = ponder_child->state;
+      root->children = std::move(ponder_child->children);
+      root->best_move = ponder_child->best_move;
+      root->best_score = ponder_child->best_score;
+      reused_ponder = root->best_move.has_value();
+    }
+    ponder_root.reset();  // Clear after we're done with it
+
+    if (!reused_ponder) {
+      std::cout << "thinking....." << std::endl;
+      hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+    }
     engine_response_count++;
     std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
     hexchess::gephi::export_tree(*root, gephi_path);
@@ -193,10 +275,15 @@ int main(int argc, char** argv) {
       root->state.make_move(mv);
       root->best_move = std::nullopt;
       root->children.clear();
+      ponder_root = std::make_unique<hexchess::search::Node>();
+      ponder_root->state = root->state;
     } else {
       std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): (none)" << std::endl;
     }
   }
+
+  g_quit_requested = true;
+  if (io_thread.joinable()) io_thread.join();
 
   return 0;
 }
