@@ -31,6 +31,8 @@ make
 
 3. **quit**: Exit.
 
+4. **heartbeat**: Optional. If the GUI sends `heartbeat` (e.g. every 0.5s), the engine stays alive. If the engine receives no heartbeat for 5 consecutive 0.5s checks (2.5s total), it exits. This allows the engine to shut down when the GUI disconnects.
+
 ## Example
 
 ```

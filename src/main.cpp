@@ -6,6 +6,7 @@
 #include "gephi.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <chrono>
 #include <cctype>
 #include <filesystem>
@@ -56,6 +57,30 @@ static std::queue<std::string> g_input_queue;
 static std::mutex g_queue_mutex;
 static std::atomic<bool> g_quit_requested{false};
 static std::atomic<bool> g_io_thread_done{false};
+
+// Heartbeat: GUI sends "heartbeat" every 0.5s; engine quits after 5 missed checks (2.5s).
+static constexpr int HEARTBEAT_INTERVAL_MS = 500;
+static constexpr int HEARTBEAT_FAIL_COUNT = 5;
+static std::chrono::steady_clock::time_point g_last_heartbeat;
+static std::atomic<int> g_heartbeat_failed_checks{0};
+static std::mutex g_heartbeat_mutex;
+
+static void heartbeat_watcher_thread_func() {
+  while (!g_quit_requested) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
+    if (g_quit_requested) break;
+    auto now = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lock(g_heartbeat_mutex);
+    if (now - g_last_heartbeat >= std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS)) {
+      if (++g_heartbeat_failed_checks >= HEARTBEAT_FAIL_COUNT) {
+        g_quit_requested = true;
+        break;
+      }
+    } else {
+      g_heartbeat_failed_checks = 0;
+    }
+  }
+}
 
 static void io_thread_func() {
   std::string line;
@@ -109,6 +134,12 @@ int main(int argc, char** argv) {
 
   std::thread io_thread(io_thread_func);
 
+  {
+    std::lock_guard<std::mutex> lock(g_heartbeat_mutex);
+    g_last_heartbeat = std::chrono::steady_clock::now();
+  }
+  std::thread heartbeat_watcher_thread(heartbeat_watcher_thread_func);
+
   while (true) {
     bool opponent_to_play = have_board && root &&
         ((engine_plays_white && !root->state.white_to_play) || (!engine_plays_white && root->state.white_to_play));
@@ -118,7 +149,14 @@ int main(int argc, char** argv) {
 
     if (line == "quit") {
       g_quit_requested = true;
-      break;
+      break;  // exit main loop, join threads, then exit(0)
+    }
+
+    if (line == "heartbeat") {
+      std::lock_guard<std::mutex> lock(g_heartbeat_mutex);
+      g_last_heartbeat = std::chrono::steady_clock::now();
+      g_heartbeat_failed_checks = 0;
+      continue;
     }
 
     if (!have_board) {
@@ -134,7 +172,7 @@ int main(int argc, char** argv) {
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
-        hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+        hexchess::search::iterative_deepen(*root, 3000, []() { return false; });
         engine_response_count++;
         std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
         hexchess::gephi::export_tree(*root, gephi_path);
@@ -258,7 +296,7 @@ int main(int argc, char** argv) {
 
     if (!reused_ponder) {
       std::cout << "thinking....." << std::endl;
-      hexchess::search::iterative_deepen(*root, 1000, []() { return false; });
+      hexchess::search::iterative_deepen(*root, 3000, []() { return false; });
     }
     engine_response_count++;
     std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
@@ -282,7 +320,8 @@ int main(int argc, char** argv) {
   }
 
   g_quit_requested = true;
+  if (heartbeat_watcher_thread.joinable()) heartbeat_watcher_thread.join();
   if (io_thread.joinable()) io_thread.join();
 
-  return 0;
+  exit(0);  // ensure process terminates (e.g. when "quit" was received)
 }

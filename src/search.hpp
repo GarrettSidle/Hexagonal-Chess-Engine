@@ -42,7 +42,7 @@ static constexpr int MAX_PLY = 64;
 // Search context: node budget, TT, killers, and usage.
 struct SearchContext {
   int nodes_used = 0;
-  int max_nodes = 1000;
+  int max_nodes = 3000;
   std::vector<TTEntry>* tt = nullptr;
   int tt_mask = 0;  // size - 1 for power-of-2 table
   std::array<std::array<std::optional<board::Move>, 2>, MAX_PLY> killers{};
@@ -58,7 +58,7 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
 
 // Iterative deepening: run minimax at depth 1, 2, ... until stop() returns true or node budget exceeded.
 // stop() is checked at the start of each depth; pass nullptr to never stop early.
-void iterative_deepen(Node& root, int max_nodes = 1000, std::function<bool()> stop = nullptr);
+void iterative_deepen(Node& root, int max_nodes = 3000, std::function<bool()> stop = nullptr);
 
 // Find child of root that matches move (from/to). Returns pointer to that child or nullptr.
 Node* find_child(Node& root, const board::Move& move);
