@@ -107,18 +107,12 @@ void export_tree(const search::Node& root, const std::string& path) {
       ? std::filesystem::path(path)
       : (std::filesystem::path(g_export_base_dir) / path);
 
-  if (try_write(p, nodes_ss, edges_ss)) {
-    std::cerr << "Gephi: " << p.string() << std::endl;
+  if (try_write(p, nodes_ss, edges_ss))
     return;
-  }
 
   std::filesystem::path fallback = std::filesystem::current_path() / path;
-  if (try_write(fallback, nodes_ss, edges_ss)) {
-    std::cerr << "Gephi: " << fallback.string() << " (exe dir failed, used cwd)" << std::endl;
+  if (try_write(fallback, nodes_ss, edges_ss))
     return;
-  }
-
-  std::cerr << "Gephi: failed to write " << path << std::endl;
 }
 
 }  // namespace gephi

@@ -10,6 +10,7 @@ Glinski hexagonal chess engine. Bot plays **black**; white is the opponent.
 mkdir build && cd build
 cmake ..
 cmake --build .
+cmake -G "Visual Studio 17 2022" -A x64 .
 cmake --build . --config Release
 ```
 
@@ -22,7 +23,6 @@ make
 ## Protocol (stdin/stdout)
 
 1. **Start a game**: Type the variant name to load the default starting position.
-
    - **glinski** – Glinski hexagonal chess (white to move).
 
    Alternatively, send 12 lines (one per column A–K, then `white` or `black`) for a custom position.

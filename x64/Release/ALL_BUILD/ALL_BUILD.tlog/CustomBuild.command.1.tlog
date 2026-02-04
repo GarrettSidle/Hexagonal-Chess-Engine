@@ -1,6 +1,6 @@
-^C:\DEV\REPOS\HEXAGONAL-CHESS-APPLICATION\ENGINE\CMAKELISTS.TXT
+^C:\DEV\REPOS\HEXAGONAL-CHESS-ENGINE\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/dev/repos/Hexagonal-Chess-Application/Engine -BC:/dev/repos/Hexagonal-Chess-Application/Engine --check-stamp-file C:/dev/repos/Hexagonal-Chess-Application/Engine/CMakeFiles/generate.stamp
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/dev/repos/Hexagonal-Chess-Engine -BC:/dev/repos/Hexagonal-Chess-Engine --check-stamp-file C:/dev/repos/Hexagonal-Chess-Engine/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

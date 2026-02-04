@@ -125,7 +125,11 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
       node.state.undo_move(m, ui);
       node.children.push_back({m, std::move(child)});
 
-      if (ctx.budget_exceeded()) return max_eval;
+      if (ctx.budget_exceeded()) {
+        node.best_move = best_move ? best_move : std::optional<Move>(m);
+        node.best_score = max_eval;
+        return max_eval;
+      }
       if (score > max_eval) {
         max_eval = score;
         best_move = m;
@@ -171,7 +175,11 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
       node.state.undo_move(m, ui);
       node.children.push_back({m, std::move(child)});
 
-      if (ctx.budget_exceeded()) return min_eval;
+      if (ctx.budget_exceeded()) {
+        node.best_move = best_move ? best_move : std::optional<Move>(m);
+        node.best_score = min_eval;
+        return min_eval;
+      }
       if (score < min_eval) {
         min_eval = score;
         best_move = m;
@@ -223,9 +231,12 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
     minimax_node(root, d, 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
 
     if (ctx.budget_exceeded()) {
-      root.children = std::move(saved_children);
-      root.best_move = saved_best_move;
-      root.best_score = saved_best_score;
+      // Keep partial result from this depth if we got a move; only restore when we have nothing
+      if (!root.best_move) {
+        root.children = std::move(saved_children);
+        root.best_move = saved_best_move;
+        root.best_score = saved_best_score;
+      }
       break;
     }
     // Tree reflects last completed depth; continue to next depth

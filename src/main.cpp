@@ -95,7 +95,6 @@ static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess
 int main(int argc, char** argv) {
   std::string exe_dir = get_executable_dir();
   hexchess::gephi::set_export_base_dir(exe_dir);
-  std::cerr << "Gephi exports: " << (std::filesystem::path(exe_dir) / "gephi_exports").string() << std::endl;
 
   std::vector<std::string> board_lines;
   std::string line;

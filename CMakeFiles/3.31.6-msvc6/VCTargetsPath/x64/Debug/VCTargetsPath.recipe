@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\dev\repos\Hexagonal-Chess-Application\Engine\CMakeFiles\3.31.6-msvc6\x64\Debug\VCTargetsPath</FullPath>
+      <FullPath>C:\dev\repos\Hexagonal-Chess-Engine\CMakeFiles\3.31.6-msvc6\x64\Debug\VCTargetsPath</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

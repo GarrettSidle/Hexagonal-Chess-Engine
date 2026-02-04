@@ -1,3 +1,3 @@
-C:/dev/repos/Hexagonal-Chess-Application/Engine/CMakeFiles/engine.dir
-C:/dev/repos/Hexagonal-Chess-Application/Engine/CMakeFiles/ALL_BUILD.dir
-C:/dev/repos/Hexagonal-Chess-Application/Engine/CMakeFiles/ZERO_CHECK.dir
+C:/dev/repos/Hexagonal-Chess-Engine/CMakeFiles/engine.dir
+C:/dev/repos/Hexagonal-Chess-Engine/CMakeFiles/ALL_BUILD.dir
+C:/dev/repos/Hexagonal-Chess-Engine/CMakeFiles/ZERO_CHECK.dir

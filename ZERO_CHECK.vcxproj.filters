@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\dev\repos\Hexagonal-Chess-Application\Engine\CMakeFiles\bb4ef32a86560625d16c698caf1756a1\generate.stamp.rule">
+    <CustomBuild Include="C:\dev\repos\Hexagonal-Chess-Engine\CMakeFiles\933c89424afb52fe2de8934c68eddbff\generate.stamp.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{AB8C2CDD-197A-395A-A3F7-29DFF6C2CABD}</UniqueIdentifier>
+      <UniqueIdentifier>{F88D84F7-DEB5-3CE8-81DE-39FD0D800A9D}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
