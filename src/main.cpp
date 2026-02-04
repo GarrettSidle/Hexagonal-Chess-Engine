@@ -7,11 +7,29 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+static std::string get_executable_dir() {
+#ifdef _WIN32
+  char buf[MAX_PATH];
+  if (GetModuleFileNameA(nullptr, buf, sizeof(buf))) {
+    std::filesystem::path p(buf);
+    if (p.has_parent_path()) {
+      return p.parent_path().string();
+    }
+  }
+#endif
+  return std::filesystem::current_path().string();
+}
 
 static std::string format_game_timestamp(std::chrono::system_clock::time_point tp) {
   auto t = std::chrono::system_clock::to_time_t(tp);
@@ -21,6 +39,10 @@ static std::string format_game_timestamp(std::chrono::system_clock::time_point t
 }
 
 int main(int argc, char** argv) {
+  std::string exe_dir = get_executable_dir();
+  hexchess::gephi::set_export_base_dir(exe_dir);
+  std::cerr << "Gephi exports: " << (std::filesystem::path(exe_dir) / "gephi_exports").string() << std::endl;
+
   std::vector<std::string> board_lines;
   std::string line;
   bool have_board = false;

@@ -2,12 +2,19 @@
 #include "protocol.hpp"
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 namespace hexchess {
 namespace gephi {
 
 using namespace board;
+
+static std::string g_export_base_dir;
+
+void set_export_base_dir(const std::string& dir) {
+  g_export_base_dir = dir;
+}
 
 static std::string escape_xml(const std::string& s) {
   std::string out;
@@ -66,22 +73,14 @@ static void walk_tree(const search::Node& node, const State* parent_state, const
   }
 }
 
-void export_tree(const search::Node& root, const std::string& path) {
-  std::filesystem::path p(path);
-  if (p.has_parent()) {
-    std::filesystem::create_directories(p.parent_path());
+static bool try_write(const std::filesystem::path& p, const std::ostringstream& nodes_ss, const std::ostringstream& edges_ss) {
+  if (p.has_parent_path()) {
+    std::error_code ec;
+    std::filesystem::create_directories(p.parent_path(), ec);
+    if (ec) return false;
   }
-
-  std::ostringstream nodes_ss;
-  std::ostringstream edges_ss;
-  int next_id = 0;
-  int next_edge_id = 0;
-
-  walk_tree(root, nullptr, nullptr, 0, next_id, next_edge_id, nodes_ss, edges_ss);
-
-  std::ofstream f(path);
-  if (!f) return;
-
+  std::ofstream f(p);
+  if (!f) return false;
   f << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
   f << "<gexf xmlns=\"http://www.gexf.net/1.3\" version=\"1.3\">\n";
   f << "  <graph mode=\"static\" defaultedgetype=\"directed\">\n";
@@ -93,6 +92,33 @@ void export_tree(const search::Node& root, const std::string& path) {
   f << "    <nodes>\n" << nodes_ss.str() << "    </nodes>\n";
   f << "    <edges>\n" << edges_ss.str() << "    </edges>\n";
   f << "  </graph>\n</gexf>\n";
+  return true;
+}
+
+void export_tree(const search::Node& root, const std::string& path) {
+  std::ostringstream nodes_ss;
+  std::ostringstream edges_ss;
+  int next_id = 0;
+  int next_edge_id = 0;
+
+  walk_tree(root, nullptr, nullptr, 0, next_id, next_edge_id, nodes_ss, edges_ss);
+
+  std::filesystem::path p = g_export_base_dir.empty()
+      ? std::filesystem::path(path)
+      : (std::filesystem::path(g_export_base_dir) / path);
+
+  if (try_write(p, nodes_ss, edges_ss)) {
+    std::cerr << "Gephi: " << p.string() << std::endl;
+    return;
+  }
+
+  std::filesystem::path fallback = std::filesystem::current_path() / path;
+  if (try_write(fallback, nodes_ss, edges_ss)) {
+    std::cerr << "Gephi: " << fallback.string() << " (exe dir failed, used cwd)" << std::endl;
+    return;
+  }
+
+  std::cerr << "Gephi: failed to write " << path << std::endl;
 }
 
 }  // namespace gephi
