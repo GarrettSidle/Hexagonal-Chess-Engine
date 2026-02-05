@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
   std::optional<hexchess::board::State> state_opt;
   std::unique_ptr<hexchess::search::Node> root;
   std::unique_ptr<hexchess::search::Node> ponder_root;
+  int max_nodes = 3000;  // default; can be overridden by trailing number on first command (e.g. "glinski white 5000")
 
   std::thread io_thread(io_thread_func);
 
@@ -178,6 +179,22 @@ int main(int argc, char** argv) {
       std::string lower;
       lower.resize(line.size());
       std::transform(line.begin(), line.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      // Parse optional trailing node count: e.g. "glinski white 5000" -> cmd "glinski white", max_nodes 5000
+      std::string cmd = lower;
+      auto pos = cmd.rfind(' ');
+      if (pos != std::string::npos && pos + 1 < cmd.size()) {
+        std::string suffix = cmd.substr(pos + 1);
+        if (!suffix.empty() && std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) { return std::isdigit(c); })) {
+          try {
+            int n = std::stoi(suffix);
+            if (n > 0) {
+              max_nodes = n;
+              cmd = cmd.substr(0, pos);
+              while (!cmd.empty() && cmd.back() == ' ') cmd.pop_back();
+            }
+          } catch (...) {}
+        }
+      }
       auto start_engine_white = [&](const char* pos_name) {
         have_board = true;
         if (!game_start_time_set) {
@@ -187,7 +204,7 @@ int main(int argc, char** argv) {
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
-        hexchess::search::iterative_deepen(*root, 3000, []() { return false; });
+        hexchess::search::iterative_deepen(*root, max_nodes, []() { return false; });
         engine_response_count++;
         std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
         hexchess::gephi::export_tree(*root, gephi_path);
@@ -220,27 +237,27 @@ int main(int argc, char** argv) {
         ponder_root = std::make_unique<hexchess::search::Node>();
         ponder_root->state = root->state;
       };
-      if (lower == "glinski white") {
+      if (cmd == "glinski white") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_glinski();
         start_engine_white("glinski");
-      } else if (lower == "glinski") {
+      } else if (cmd == "glinski") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_glinski();
         start_position("glinski");
-      } else if (lower == "mccooey white") {
+      } else if (cmd == "mccooey white") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_mccooey();
         start_engine_white("mccooey");
-      } else if (lower == "mccooey") {
+      } else if (cmd == "mccooey") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_mccooey();
         start_position("mccooey");
-      } else if (lower == "hexofen white") {
+      } else if (cmd == "hexofen white") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_hexofen();
         start_engine_white("hexofen");
-      } else if (lower == "hexofen") {
+      } else if (cmd == "hexofen") {
         root = std::make_unique<hexchess::search::Node>();
         root->state.set_hexofen();
         start_position("hexofen");
@@ -315,7 +332,7 @@ int main(int argc, char** argv) {
 
     if (!reused_ponder) {
       std::cout << "thinking....." << std::endl;
-      hexchess::search::iterative_deepen(*root, 3000, []() { return false; });
+      hexchess::search::iterative_deepen(*root, max_nodes, []() { return false; });
     }
     engine_response_count++;
     std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
