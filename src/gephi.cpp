@@ -36,6 +36,8 @@ static std::string move_label(const State& parent_state, const Move& m) {
   auto captured = parent_state.at(m.to_col, m.to_row);
   char pt = piece ? piece->type : 'P';
   std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
+  if (m.en_passant && piece)
+    return protocol::format_move_ep(m, piece->white);
   return protocol::format_move_long(m, pt, cap_type);
 }
 

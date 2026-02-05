@@ -50,13 +50,29 @@ std::optional<board::State> parse_board(const std::vector<std::string>& lines) {
 }
 
 std::optional<board::Move> parse_move(const std::string& s) {
-  std::istringstream iss(s);
-  std::string t0, t1, t2;
-  if (iss >> t0 >> t1 >> t2) {
-    auto from = parse_square(t1);
-    auto to = parse_square(t2);
-    if (from && to) {
-      return board::Move{ from->first, from->second, to->first, to->second, false, false, false };
+  // PeP {from} {to} {captured} — en passant
+  {
+    std::istringstream iss(s);
+    std::string t0, t1, t2, t3;
+    if (iss >> t0 >> t1 >> t2 >> t3 &&
+        t0.size() == 3 && (t0[0] == 'P' || t0[0] == 'p') && (t0[1] == 'e' || t0[1] == 'E') && (t0[2] == 'P' || t0[2] == 'p')) {
+      auto from = parse_square(t1);
+      auto to = parse_square(t2);
+      if (from && to) {
+        return board::Move{ from->first, from->second, to->first, to->second, true, true, false };
+      }
+    }
+  }
+  // N A3 B4 or NxB A3 B4 (three tokens: piece, from, to)
+  {
+    std::istringstream iss(s);
+    std::string t0, t1, t2;
+    if (iss >> t0 >> t1 >> t2) {
+      auto from = parse_square(t1);
+      auto to = parse_square(t2);
+      if (from && to) {
+        return board::Move{ from->first, from->second, to->first, to->second, false, false, false };
+      }
     }
   }
   if (s.size() < 4) return std::nullopt;
@@ -97,6 +113,14 @@ std::string format_move_long(const board::Move& m, char piece_type, std::optiona
     return std::string(1, p) + "x" + c + " " + from_sq + " " + to_sq;
   }
   return std::string(1, p) + " " + from_sq + " " + to_sq;
+}
+
+std::string format_move_ep(const board::Move& m, bool piece_white) {
+  std::string from_sq = board::square_notation(m.from_col, m.from_row);
+  std::string to_sq = board::square_notation(m.to_col, m.to_row);
+  int cap_row = piece_white ? m.to_row - 1 : m.to_row + 1;
+  std::string cap_sq = board::square_notation(m.to_col, cap_row);
+  return "PeP " + from_sq + " " + to_sq + " " + cap_sq;
 }
 
 }  // namespace protocol

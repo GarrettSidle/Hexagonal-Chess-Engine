@@ -182,7 +182,9 @@ int main(int argc, char** argv) {
           auto captured = root->state.at(mv.to_col, mv.to_row);
           char pt = piece ? piece->type : 'P';
           std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
-          std::string eng_move_str = hexchess::protocol::format_move_long(mv, pt, cap_type);
+          std::string eng_move_str = mv.en_passant
+              ? hexchess::protocol::format_move_ep(mv, true)
+              : hexchess::protocol::format_move_long(mv, pt, cap_type);
           std::cout << "Engine Move (White): " << eng_move_str << std::endl;
           root->state.make_move(mv);
           root->best_move = std::nullopt;
@@ -277,7 +279,9 @@ int main(int argc, char** argv) {
     auto captured = root->state.at(move_opt->to_col, move_opt->to_row);
     char pt = piece ? piece->type : 'P';
     std::optional<char> cap_type = captured ? std::optional<char>(captured->type) : std::nullopt;
-    std::string player_notation = hexchess::protocol::format_move_long(*move_opt, pt, cap_type);
+    std::string player_notation = move_opt->en_passant
+        ? hexchess::protocol::format_move_ep(*move_opt, player_played_white)
+        : hexchess::protocol::format_move_long(*move_opt, pt, cap_type);
     std::cout << "Player Move (" << (player_played_white ? "White" : "Black") << "): " << player_notation << std::endl;
 
     root->state.make_move(*move_opt);
@@ -307,7 +311,9 @@ int main(int argc, char** argv) {
       auto eng_captured = root->state.at(mv.to_col, mv.to_row);
       char eng_pt = eng_piece ? eng_piece->type : 'P';
       std::optional<char> eng_cap_type = eng_captured ? std::optional<char>(eng_captured->type) : std::nullopt;
-      std::string eng_move_str = hexchess::protocol::format_move_long(mv, eng_pt, eng_cap_type);
+      std::string eng_move_str = mv.en_passant
+          ? hexchess::protocol::format_move_ep(mv, engine_plays_white)
+          : hexchess::protocol::format_move_long(mv, eng_pt, eng_cap_type);
       std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): " << eng_move_str << std::endl;
       root->state.make_move(mv);
       root->best_move = std::nullopt;
