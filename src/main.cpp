@@ -61,7 +61,10 @@ static std::atomic<bool> g_io_thread_done{false};
 // Heartbeat: GUI sends "heartbeat" every 0.5s; engine quits after 5 missed checks (2.5s).
 static constexpr int HEARTBEAT_INTERVAL_MS = 500;
 static constexpr int HEARTBEAT_FAIL_COUNT = 5;
+// Idle: if no input (any line) for this long, assume GUI is gone and quit.
+static constexpr int IDLE_TIMEOUT_MS = 2 * 60 * 1000;  // 2 minutes
 static std::chrono::steady_clock::time_point g_last_heartbeat;
+static std::chrono::steady_clock::time_point g_last_activity;
 static std::atomic<int> g_heartbeat_failed_checks{0};
 static std::mutex g_heartbeat_mutex;
 
@@ -79,6 +82,11 @@ static void heartbeat_watcher_thread_func() {
     } else {
       g_heartbeat_failed_checks = 0;
     }
+    // Idle timeout: no input at all for IDLE_TIMEOUT_MS -> quit (catches GUI disconnect without heartbeats).
+    if (now - g_last_activity >= std::chrono::milliseconds(IDLE_TIMEOUT_MS)) {
+      g_quit_requested = true;
+      break;
+    }
   }
 }
 
@@ -94,11 +102,16 @@ static void io_thread_func() {
 
 static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess::search::Node>* ponder_root) {
   while (true) {
+    if (g_quit_requested) return "quit";
     {
       std::lock_guard<std::mutex> lock(g_queue_mutex);
       if (!g_input_queue.empty()) {
         std::string line = std::move(g_input_queue.front());
         g_input_queue.pop();
+        {
+          std::lock_guard<std::mutex> hb_lock(g_heartbeat_mutex);
+          g_last_activity = std::chrono::steady_clock::now();
+        }
         return line;
       }
     }
@@ -136,7 +149,9 @@ int main(int argc, char** argv) {
 
   {
     std::lock_guard<std::mutex> lock(g_heartbeat_mutex);
-    g_last_heartbeat = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    g_last_heartbeat = now;
+    g_last_activity = now;
   }
   std::thread heartbeat_watcher_thread(heartbeat_watcher_thread_func);
 

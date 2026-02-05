@@ -33,6 +33,8 @@ make
 
 4. **heartbeat**: Optional. If the GUI sends `heartbeat` (e.g. every 0.5s), the engine stays alive. If the engine receives no heartbeat for 5 consecutive 0.5s checks (2.5s total), it exits. This allows the engine to shut down when the GUI disconnects.
 
+5. **Idle timeout**: If the engine receives no input (any line) for 5 minutes, it exits. This catches cases where the GUI disconnects without sending heartbeats or closing stdin, so the engine does not run indefinitely in the background.
+
 ## Example
 
 ```
