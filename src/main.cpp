@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
           game_start_time_set = true;
         }
         engine_plays_white = true;
-        std::cout << "position " << pos_name << " (white to move)" << std::endl;
+        std::cout << "position " << pos_name << " (white to move) max nodes " << max_nodes << std::endl;
         std::cout << "thinking....." << std::endl;
         std::cout.flush();
         hexchess::search::iterative_deepen(*root, max_nodes, []() { return false; });
@@ -248,7 +248,7 @@ int main(int argc, char** argv) {
           game_start_time = std::chrono::system_clock::now();
           game_start_time_set = true;
         }
-        std::cout << "position " << pos_name << " (white to move)" << std::endl;
+        std::cout << "position " << pos_name << " (white to move) max nodes " << max_nodes << std::endl;
         std::cout.flush();
         ponder_root = std::make_unique<hexchess::search::Node>();
         ponder_root->state = root->state;
