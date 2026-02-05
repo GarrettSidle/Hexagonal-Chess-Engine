@@ -21,6 +21,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #endif
 
 static std::string get_executable_dir() {
@@ -131,6 +133,13 @@ static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess
 }
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  // When run as subprocess with redirected stdin/stdout, use binary mode to avoid pipe issues
+  if (_isatty(_fileno(stdin)) == 0 && _isatty(_fileno(stdout)) == 0) {
+    _setmode(_fileno(stdin), _O_BINARY);
+    _setmode(_fileno(stdout), _O_BINARY);
+  }
+#endif
   std::string exe_dir = get_executable_dir();
   hexchess::gephi::set_export_base_dir(exe_dir);
 
@@ -161,6 +170,10 @@ int main(int argc, char** argv) {
         ((engine_plays_white && !root->state.white_to_play) || (!engine_plays_white && root->state.white_to_play));
     line = get_next_line(opponent_to_play, &ponder_root);
 
+    // Trim leading/trailing whitespace so " glinski white 3000 " is recognized
+    while (!line.empty() && (line.front() == ' ' || line.front() == '\t')) line.erase(0, 1);
+    while (!line.empty() && (line.back() == ' ' || line.back() == '\t' || line.back() == '\r' || line.back() == '\n')) line.pop_back();
+
     if (line.empty()) continue;
 
     if (line == "quit") {
@@ -175,6 +188,7 @@ int main(int argc, char** argv) {
       continue;
     }
 
+    try {
     if (!have_board) {
       std::string lower;
       lower.resize(line.size());
@@ -204,6 +218,7 @@ int main(int argc, char** argv) {
         engine_plays_white = true;
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
         std::cout << "thinking....." << std::endl;
+        std::cout.flush();
         hexchess::search::iterative_deepen(*root, max_nodes, []() { return false; });
         engine_response_count++;
         std::string gephi_path = "gephi_exports/" + format_game_timestamp(game_start_time) + " - Move " + std::to_string(engine_response_count) + ".gexf";
@@ -234,6 +249,7 @@ int main(int argc, char** argv) {
           game_start_time_set = true;
         }
         std::cout << "position " << pos_name << " (white to move)" << std::endl;
+        std::cout.flush();
         ponder_root = std::make_unique<hexchess::search::Node>();
         ponder_root->state = root->state;
       };
@@ -354,6 +370,11 @@ int main(int argc, char** argv) {
       ponder_root->state = root->state;
     } else {
       std::cout << "Engine Move (" << (engine_plays_white ? "White" : "Black") << "): (none)" << std::endl;
+    }
+    } catch (const std::exception& e) {
+      std::cerr << "Error: " << e.what() << std::endl;
+    } catch (...) {
+      std::cerr << "Error: unexpected exception" << std::endl;
     }
   }
 
