@@ -7,10 +7,10 @@
 namespace hexchess {
 namespace board {
 
-// Zobrist keys: pieces + side-to-move + en-passant square
+// zobrist: pieces, side, ep square
 static constexpr int ZOBRIST_COLS = 11;
 static constexpr int ZOBRIST_ROWS = 11;
-static constexpr int ZOBRIST_PIECES = 12;  // 6 types * 2 colors
+static constexpr int ZOBRIST_PIECES = 12;  // 6 types x 2 colors
 static constexpr int ZOBRIST_PIECE_KEYS = ZOBRIST_COLS * ZOBRIST_ROWS * ZOBRIST_PIECES;
 static constexpr int ZOBRIST_EP_KEYS = ZOBRIST_COLS * ZOBRIST_ROWS;
 static constexpr int ZOBRIST_SIZE = ZOBRIST_PIECE_KEYS + 1 + ZOBRIST_EP_KEYS;
@@ -67,19 +67,19 @@ State::State() {
 
 void State::set_glinski() {
   variant = Variant::Glinski;
-  // Glinski initial position (from Utils.cs glinskiBoard).
+  // glinski initial position
   const char* glinski[] = {
-    "      ",           // col 0: 6
-    "P     p",          // col 1: 7
-    "RP    pr",         // col 2: 8
-    "N P   p n",        // col 3: 9
-    "Q  P  p  q",       // col 4: 10
-    "BBB P p bbb",      // col 5: 11
-    "K  P  p  k",       // col 6: 10
-    "N P   p n",        // col 7: 9
-    "RP    pr",         // col 8: 8
-    "P     p",          // col 9: 7
-    "      ",           // col 10: 6
+    "      ",
+    "P     p",
+    "RP    pr",
+    "N P   p n",
+    "Q  P  p  q",
+    "BBB P p bbb",
+    "K  P  p  k",
+    "N P   p n",
+    "RP    pr",
+    "P     p",
+    "      ",
   };
   for (int c = 0; c < NUM_COLS; ++c) {
     int maxr = max_row_glinski(c);
@@ -139,17 +139,17 @@ void State::set_mccooey() {
 void State::set_hexofen() {
   variant = Variant::Hexofen;
   const char* hexofen[] = {
-    "P    p",      // col 0: 6
-    "P     p",     // col 1: 7
-    "NP    pb",    // col 2: 8
-    "RP     pr",   // col 3: 9
-    "BNP   pnq",   // col 4: 10
-    "KBP     pbk", // col 5: 11 (K,B,P,4 spaces,p,b,k)
-    "QNP   pnb",   // col 6: 10
-    "RP     pr",   // col 7: 9
-    "BP    pn",    // col 8: 8
-    "P     p",     // col 9: 7
-    "P    p",      // col 10: 6
+    "P    p",
+    "P     p",
+    "NP    pb",
+    "RP     pr",
+    "BNP   pnq",
+    "KBP     pbk",
+    "QNP   pnb",
+    "RP     pr",
+    "BP    pn",
+    "P     p",
+    "P    p",
   };
   for (int c = 0; c < NUM_COLS; ++c) {
     int maxr = max_row_hexofen(c);
@@ -195,7 +195,7 @@ State::UndoInfo State::make_move(const Move& move) {
   Piece p = *from_sq;
   from_sq = std::nullopt;
 
-  // Detect en passant when protocol sends compact notation without ep flag (e.g. GUI sends "a5b6")
+  // detect ep when protocol doesnt send ep flag
   bool is_ep = move.en_passant;
   if (!is_ep && p.type == 'P' && move.from_col != move.to_col && !to_sq && prev_move) {
     const Move& pm = *prev_move;
@@ -208,9 +208,7 @@ State::UndoInfo State::make_move(const Move& move) {
 
   if (is_ep) {
     int ep_col = move.to_col;
-    // Captured pawn is one step from ep square in the direction the captured pawn moved from.
-    // White capturing: captured black pawn moved down (lower row) -> it's at to_row - 1.
-    // Black capturing: captured white pawn moved up (higher row) -> it's at to_row + 1.
+    // captured pawn one step from ep square
     int ep_row = p.white ? move.to_row - 1 : move.to_row + 1;
     if (on_board(ep_col, ep_row)) {
       ui.captured = cells[static_cast<size_t>(ep_col)][static_cast<size_t>(ep_row)];
@@ -246,7 +244,7 @@ void State::undo_move(const Move& move, const UndoInfo& undo) {
   from_sq = p;
   to_sq = std::nullopt;
 
-  // Restore en passant capture: captured pawn was at same offset as in make_move.
+  // restore ep capture
   int ep_row = p.white ? move.to_row - 1 : move.to_row + 1;
   if (undo.was_ep && undo.captured && on_board(move.to_col, ep_row))
     cells[static_cast<size_t>(move.to_col)][static_cast<size_t>(ep_row)] = *undo.captured;

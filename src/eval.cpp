@@ -35,7 +35,7 @@ bool is_terminal(const board::State& state, const board::Move& move_just_made) {
   auto captured = state.white_to_play ? state.at(move_just_made.to_col, move_just_made.to_row) : std::optional<board::Piece>{};
   (void)state;
   (void)move_just_made;
-  return false;  // We detect king capture by checking captured piece after make_move.
+  return false;  // king capture detected via captured piece after make_move
 }
 
 }  // namespace eval

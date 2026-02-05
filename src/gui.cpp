@@ -31,7 +31,7 @@ static const int WIN_TREE_W = 480;
 static const int WIN_TREE_H = 560;
 static const int HEX_RADIUS = 22;
 
-// Hex center for (col, row) - same layout as C# Board.buildBoard
+// hex center (col,row) - same layout as ref impl
 static void hex_center(int col, int row, int& cx, int& cy) {
   const double hexShortRadius = (HEX_RADIUS / 2.0) * 1.732050808;  // sqrt(3)
   double startX = WIN_BOARD_W / 2.0;
@@ -60,7 +60,7 @@ static void draw_hex(SDL_Renderer* ren, int cx, int cy, int radius, Uint8 r, Uin
   }
 }
 
-// Draw filled hex by drawing 6 triangles from center (SDL2 has no built-in filled polygon)
+// filled hex via 6 tris from center (sdl has no filled polygon)
 static void fill_hex(SDL_Renderer* ren, int cx, int cy, int radius, Uint8 r, Uint8 g, Uint8 b) {
   SDL_SetRenderDrawColor(ren, r, g, b, 255);
   for (int i = 0; i < 6; ++i) {
@@ -78,7 +78,7 @@ static void fill_hex(SDL_Renderer* ren, int cx, int cy, int radius, Uint8 r, Uin
 
 static void draw_hex_cell(SDL_Renderer* ren, int cx, int cy, Uint8 r, Uint8 g, Uint8 b) {
   fill_hex(ren, cx, cy, HEX_RADIUS, r, g, b);
-  draw_hex(ren, cx, cy, HEX_RADIUS, 80, 70, 60);  // outline
+  draw_hex(ren, cx, cy, HEX_RADIUS, 80, 70, 60);
 }
 
 static char piece_char(const std::optional<Piece>& p) {
@@ -132,7 +132,7 @@ static void render_board(SDL_Renderer* ren, SDL_Window* win, TTF_Font* font, con
         }
       }
       colColorCode++;
-      if (col == 0 || (row - col == 5 && col > 0 && col < 6)) { /* row label */ }
+      if (col == 0 || (row - col == 5 && col > 0 && col < 6)) { }
     }
     if (col < 5) { rowMax++; rowColorCode++; }
     else { rowMax--; rowColorCode--; }

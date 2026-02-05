@@ -54,17 +54,17 @@ static std::string format_game_timestamp(std::chrono::system_clock::time_point t
   return oss.str();
 }
 
-// Pondering: I/O thread reads stdin so main loop can run search while waiting for opponent.
+// IO thread reads stdin so we can ponder while waiting
 static std::queue<std::string> g_input_queue;
 static std::mutex g_queue_mutex;
 static std::atomic<bool> g_quit_requested{false};
 static std::atomic<bool> g_io_thread_done{false};
 
-// Heartbeat: GUI sends "heartbeat" every 0.5s; engine quits after 5 missed checks (2.5s).
+// GUI sends heartbeat every 0.5s; we quit after 5 missed
 static constexpr int HEARTBEAT_INTERVAL_MS = 500;
 static constexpr int HEARTBEAT_FAIL_COUNT = 5;
-// Idle: if no input (any line) for this long, assume GUI is gone and quit.
-static constexpr int IDLE_TIMEOUT_MS = 2 * 60 * 1000;  // 2 minutes
+// no input for this long = assume GUI gone
+static constexpr int IDLE_TIMEOUT_MS = 2 * 60 * 1000;  // 2 min
 static std::chrono::steady_clock::time_point g_last_heartbeat;
 static std::chrono::steady_clock::time_point g_last_activity;
 static std::atomic<int> g_heartbeat_failed_checks{0};
@@ -84,7 +84,7 @@ static void heartbeat_watcher_thread_func() {
     } else {
       g_heartbeat_failed_checks = 0;
     }
-    // Idle timeout: no input at all for IDLE_TIMEOUT_MS -> quit (catches GUI disconnect without heartbeats).
+    // idle timeout - no input at all
     if (now - g_last_activity >= std::chrono::milliseconds(IDLE_TIMEOUT_MS)) {
       g_quit_requested = true;
       break;
@@ -120,7 +120,7 @@ static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess
     if (g_io_thread_done) return "quit";
 
     if (opponent_to_play && ponder_root && *ponder_root) {
-      // Use large node budget for pondering so we search deeper while waiting; stop lambda exits when input arrives
+      // ponder with big node budget, stop when input shows up
       const int ponder_nodes = 100000;
       hexchess::search::iterative_deepen(**ponder_root, ponder_nodes, []() {
         std::lock_guard<std::mutex> lock(g_queue_mutex);
@@ -134,7 +134,7 @@ static std::string get_next_line(bool opponent_to_play, std::unique_ptr<hexchess
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
-  // When run as subprocess with redirected stdin/stdout, use binary mode to avoid pipe issues
+  // binary mode when piped (avoids line ending mess)
   if (_isatty(_fileno(stdin)) == 0 && _isatty(_fileno(stdout)) == 0) {
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
   std::optional<hexchess::board::State> state_opt;
   std::unique_ptr<hexchess::search::Node> root;
   std::unique_ptr<hexchess::search::Node> ponder_root;
-  int max_nodes = 3000;  // default; can be overridden by trailing number on first command (e.g. "glinski white 5000")
+  int max_nodes = 3000;  // default, can overriden by trailing number on first cmd
 
   std::thread io_thread(io_thread_func);
 
@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
         ((engine_plays_white && !root->state.white_to_play) || (!engine_plays_white && root->state.white_to_play));
     line = get_next_line(opponent_to_play, &ponder_root);
 
-    // Trim leading/trailing whitespace so " glinski white 3000 " is recognized
+    // trim so " glinski white 3000 " works
     while (!line.empty() && (line.front() == ' ' || line.front() == '\t')) line.erase(0, 1);
     while (!line.empty() && (line.back() == ' ' || line.back() == '\t' || line.back() == '\r' || line.back() == '\n')) line.pop_back();
 
@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
 
     if (line == "quit") {
       g_quit_requested = true;
-      break;  // exit main loop, join threads, then exit(0)
+      break;
     }
 
     if (line == "heartbeat") {
@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
       std::string lower;
       lower.resize(line.size());
       std::transform(line.begin(), line.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      // Parse optional trailing node count: e.g. "glinski white 5000" -> cmd "glinski white", max_nodes 5000
+      // optional trailing node count: "glinski white 5000" -> max_nodes 5000
       std::string cmd = lower;
       auto pos = cmd.rfind(' ');
       if (pos != std::string::npos && pos + 1 < cmd.size()) {
@@ -300,7 +300,7 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    // Accept input when it's the opponent's turn (we respond with our move)
+    // only accept moves when it's opponent's turn
     if (!opponent_to_play) continue;
 
     std::string move_str;
@@ -318,10 +318,10 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    // Try to reuse ponder result before clearing
+    // try to reuse ponder tree
     hexchess::search::Node* ponder_child = ponder_root ? hexchess::search::find_child(*ponder_root, *move_opt) : nullptr;
 
-    // Player just moved; state.white_to_play is still who moved (white moved if true).
+    // who just moved (white_to_play = who moved)
     bool player_played_white = root->state.white_to_play;
     auto piece = root->state.at(move_opt->from_col, move_opt->from_row);
     auto captured = root->state.at(move_opt->to_col, move_opt->to_row);
@@ -344,7 +344,7 @@ int main(int argc, char** argv) {
       root->best_score = ponder_child->best_score;
       reused_ponder = root->best_move.has_value();
     }
-    ponder_root.reset();  // Clear after we're done with it
+    ponder_root.reset();
 
     if (!reused_ponder) {
       std::cout << "thinking....." << std::endl;
@@ -382,5 +382,5 @@ int main(int argc, char** argv) {
   if (heartbeat_watcher_thread.joinable()) heartbeat_watcher_thread.join();
   if (io_thread.joinable()) io_thread.join();
 
-  exit(0);  // ensure process terminates (e.g. when "quit" was received)
+  exit(0);
 }

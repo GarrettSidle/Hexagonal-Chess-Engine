@@ -50,7 +50,7 @@ std::optional<board::State> parse_board(const std::vector<std::string>& lines) {
 }
 
 std::optional<board::Move> parse_move(const std::string& s) {
-  // PeP {from} {to} {captured} — en passant
+  // PeP from to captured (en passant)
   {
     std::istringstream iss(s);
     std::string t0, t1, t2, t3;
@@ -63,7 +63,7 @@ std::optional<board::Move> parse_move(const std::string& s) {
       }
     }
   }
-  // N A3 B4 or NxB A3 B4 (three tokens: piece, from, to)
+  // N A3 B4 or NxB A3 B4
   {
     std::istringstream iss(s);
     std::string t0, t1, t2;

@@ -6,12 +6,10 @@
 namespace hexchess {
 namespace gephi {
 
-// Set the base directory for GEXF exports (default: current directory).
-// Call with executable directory to ensure gephi_exports is created next to the engine.
+// base dir for gexf exports (default cwd). set to exe dir so gephi_exports ends up next to engine
 void set_export_base_dir(const std::string& dir);
 
-// Export the search tree to a GEXF file for Gephi visualization.
-// Creates parent directory if needed. Nodes have score, depth, move attributes; edges have move labels.
+// dump search tree to gexf for gephi. nodes: score,depth,move; edges: move label
 void export_tree(const search::Node& root, const std::string& path);
 
 }  // namespace gephi

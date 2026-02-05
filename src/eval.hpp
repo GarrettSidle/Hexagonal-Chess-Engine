@@ -5,14 +5,13 @@
 namespace hexchess {
 namespace eval {
 
-// Piece values (same as GUI): P=1, R=5, N=3, B=3, K=0, Q=9.
+// P=1 R=5 N=3 B=3 K=0 Q=9 (same as gui)
 int piece_value(char type);
 
-// Evaluate position: positive = white better, negative = black better.
-// Terminal: if a king was just captured, return large win for capturer.
+// positive = white better
 int evaluate(const board::State& state);
 
-// Was the last move a king capture? (game over)
+// was last move king capture
 bool is_terminal(const board::State& state, const board::Move& move_just_made);
 
 }  // namespace eval

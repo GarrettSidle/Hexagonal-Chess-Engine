@@ -9,7 +9,7 @@ namespace moves {
 
 using namespace board;
 
-// Direction (col_delta, logical_row_delta).
+// (col_delta, logical_row_delta)
 struct Dir { int dc, dr; };
 
 // Horizontal (rook) directions - 6.
@@ -74,7 +74,7 @@ bool is_starting_pawn_black(const State& state, int col, int storage_row) {
   return false;
 }
 
-// En passant target square notation (if any). Only pawns double-step.
+// ep target square if any (pawns double-step only)
 static std::string en_passant_square(const State& state) {
   if (!state.prev_move) return "";
   const Move& pm = *state.prev_move;
@@ -159,7 +159,7 @@ static void add_pawn_moves(std::vector<Move>& out, const State& state,
   out.push_back(Move{ col, row, col, double_sr, false, false, false });
 }
 
-// Promotion: black pawn on row 0; white on last rank (left edge row-col==5, right col+row==15).
+// black promo row 0; white last rank (row-col==5 or col+row==15)
 static bool is_promotion(const State& state, int to_col, int to_row, bool piece_white) {
   if (piece_white) {
     if (to_col <= 5 && (to_row - to_col) == 5) return true;
@@ -208,7 +208,7 @@ std::vector<Move> generate(const State& state) {
     }
   }
 
-  // Mark promotions.
+  // mark promotions
   for (Move& m : result) {
     std::optional<Piece> p = state.at(m.from_col, m.from_row);
     if (p && p->type == 'P' && is_promotion(state, m.to_col, m.to_row, p->white))
@@ -227,7 +227,7 @@ static int mvv_lva_score(const State& state, const Move& m) {
   auto attacker = state.at(m.from_col, m.from_row);
   int victim_val = victim ? eval::piece_value(victim->type) : 0;
   int attacker_val = attacker ? eval::piece_value(attacker->type) : 1;
-  return victim_val * 10 - attacker_val;  // higher = try first
+  return victim_val * 10 - attacker_val;  // higher = try first (mvv-lva)
 }
 
 void order_moves(std::vector<Move>& moves, const State& state,

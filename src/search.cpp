@@ -23,7 +23,7 @@ int minimax(State& state, int depth, int alpha, int beta, SearchContext& ctx) {
 
   if (depth == 0) return eval::evaluate(state);
 
-  // Futility pruning: at depth >= 4, skip children if static eval is obviously bad
+  // futility: skip kids if static eval obviously bad at depth >= 4
   if (depth >= CULL_MIN_DEPTH) {
     int static_eval = eval::evaluate(state);
     if (state.white_to_play && static_eval <= alpha - CULL_MARGIN)
@@ -95,7 +95,7 @@ int minimax_node(Node& node, int depth, int ply, int alpha, int beta, SearchCont
   std::optional<Move> k2 = (ply < MAX_PLY) ? ctx.killers[ply][1] : std::nullopt;
   moves::order_moves(moves, node.state, hash_move, k1, k2);
 
-  // Futility pruning: at depth >= 4, skip children if static eval is obviously bad
+  // futility: skip kids if static eval obviously bad at depth >= 4
   if (depth >= CULL_MIN_DEPTH) {
     int static_eval = eval::evaluate(node.state);
     if (node.state.white_to_play && static_eval <= alpha - CULL_MARGIN)
@@ -222,7 +222,7 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
     auto moves = moves::generate(root.state);
     if (moves.empty()) break;
 
-    // Save previous tree; we'll restore if budget exceeded mid-depth
+    // save tree in case we exceed budget mid-depth
     decltype(root.children) saved_children = std::move(root.children);
     auto saved_best_move = root.best_move;
     auto saved_best_score = root.best_score;
@@ -231,7 +231,7 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
     minimax_node(root, d, 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), ctx);
 
     if (ctx.budget_exceeded()) {
-      // Keep partial result from this depth if we got a move; only restore when we have nothing
+      // keep partial if we got a move, restore only when we have nothing
       if (!root.best_move) {
         root.children = std::move(saved_children);
         root.best_move = saved_best_move;
@@ -239,7 +239,6 @@ void iterative_deepen(Node& root, int max_nodes, std::function<bool()> stop) {
       }
       break;
     }
-    // Tree reflects last completed depth; continue to next depth
   }
 }
 

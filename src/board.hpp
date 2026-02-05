@@ -8,11 +8,10 @@
 namespace hexchess {
 namespace board {
 
-// Variant: 0 = Glinski, 1 = McCooey, 2 = Hexofen.
+// 0=Glinski, 1=McCooey, 2=Hexofen
 enum class Variant { Glinski = 0, McCooey = 1, Hexofen = 2 };
 
-// Glinski: 11 columns, variable rows per column.
-// col 0: 6 rows, col 1: 7, ... col 5: 11, col 6: 10, ... col 10: 6.
+// 11 cols, variable rows per col
 constexpr int NUM_COLS = 11;
 
 inline int max_row_glinski(int col) {
@@ -33,8 +32,7 @@ inline int max_row(Variant v, int col) {
   return max_row_glinski(col);  // Glinski and Hexofen
 }
 
-// Logical row (for move direction math) vs storage row (array index).
-// Right half (col > 5): same logical line has higher logical row index.
+// logical row (move math) vs storage row
 inline int get_logical_row(int col, int storage_row) {
   return col <= 5 ? storage_row : storage_row + col - 5;
 }
@@ -54,12 +52,10 @@ struct Move {
   bool promotion = false;
 };
 
-// Square: empty or one piece.
+// empty or one piece
 using Square = std::optional<Piece>;
 
-// Board state: columns 0..10, each column has variable-length row.
-// white_to_play: true = white to move.
-// prev_move: for en passant (pawn double-step); nullopt if not applicable.
+// columns 0..10, variable row length. prev_move for ep
 struct State {
   std::vector<std::vector<Square>> cells;
   bool white_to_play = true;
@@ -67,23 +63,21 @@ struct State {
   Variant variant = Variant::Glinski;
 
   State();
-  // Build from Glinski / McCooey / Hexofen initial position.
+  // Glinski/McCooey/Hexofen start pos
   void set_glinski();
   void set_mccooey();
   void set_hexofen();
 
-  // (col, storage_row) in bounds for current variant?
+  // in bounds for current variant
   bool on_board(int col, int storage_row) const;
   static bool on_board(Variant v, int col, int storage_row);
 
-  // Get piece at (col, storage_row). Returns nullopt if off-board or empty.
   std::optional<Piece> at(int col, int storage_row) const;
 
-  // Zobrist hash for transposition table. Includes side-to-move.
+  // zobrist for TT
   uint64_t hash() const;
 
-  // Make move; assumes legal. Updates prev_move for en passant.
-  // Returns info needed to undo (captured piece, was en passant, old prev_move).
+  // make move (assumes legal). returns undo info
   struct UndoInfo {
     std::optional<Piece> captured;
     bool was_ep = false;
@@ -94,7 +88,7 @@ struct State {
   void undo_move(const Move& move, const UndoInfo& undo);
 };
 
-// Notation for a square: "A1", "B2", etc. (col 0 = A, row 0 = 1).
+// "A1", "B2" etc. col 0 = A, row 0 = 1
 std::string square_notation(int col, int row);
 
 }  // namespace board
