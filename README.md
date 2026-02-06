@@ -1,15 +1,12 @@
 # Hexagonal Chess Engine (C++)
 
-Glinski hexagonal chess engine. Bot plays **black**; white is the opponent.
+![Radial tree at depth 4](Captures/RadialTree.png)
 
 ## Build
 
 **With CMake:**
 
 ```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
 cmake -G "Visual Studio 17 2022" -A x64 .
 cmake --build . --config Release
 ```
@@ -46,13 +43,7 @@ bestmove ...
 quit
 ```
 
----
-
 ## How the Hexagonal Chess Bot Thinks
-
-**Radial tree**
-
-![Radial tree at depth 4](Captures/RadialTree.png)
 
 Building a chess bot comes down to turning a messy board position into math, then using that math to predict the future. At its core, the bot is just evaluating positions and exploring possible moves as efficiently as possible.
 
@@ -63,7 +54,7 @@ The first thing the bot needs is a way to judge how good a position is. In this 
 A typical point system might look like this:
 
 | Piece  | Value |
-|--------|-------|
+| ------ | ----- |
 | Pawn   | 1     |
 | Knight | 3     |
 | Bishop | 3     |
@@ -182,7 +173,3 @@ Overall this chess bot is a resounding success—I am only able to beat it when 
 **Radial representation of bot's tree at depth = 4**
 
 ![Radial tree](Captures/RadialTree.png)
-
-**A video of bot play in action**
-
-<video src="Captures/BotPlay.mp4" controls width="600">[BotPlay.mp4](Captures/BotPlay.mp4)</video>
